@@ -349,6 +349,99 @@
 				font-weight: 500;
 			}
 
+			/* Editable field styles */
+			.editable-value {
+				background: rgba(255, 255, 255, 0.05);
+				border: 1px solid var(--border);
+				border-radius: 6px;
+				padding: 8px 12px;
+				outline: none;
+				transition: all 0.3s ease;
+				min-height: 24px;
+			}
+
+			.editable-value:hover {
+				border-color: var(--accent-primary);
+				background: rgba(255, 255, 255, 0.08);
+			}
+
+			.editable-value:focus {
+				border-color: var(--accent-primary);
+				background: rgba(255, 255, 255, 0.1);
+				box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+			}
+
+			/* Inline editable (for secondary colors/materials) */
+			.secondary-characteristic .editable-value {
+				background: rgba(255, 255, 255, 0.03);
+				border-color: rgba(255, 255, 255, 0.15);
+			}
+
+			.secondary-characteristic .editable-value:hover {
+				border-color: var(--accent-primary);
+				background: rgba(255, 255, 255, 0.06);
+			}
+
+			/* Submit button */
+			.submit-container {
+				margin-top: 2rem;
+				padding-top: 2rem;
+				border-top: 1px solid var(--border);
+				display: flex;
+				justify-content: center;
+			}
+
+			.submit-btn {
+				background: linear-gradient(
+					135deg,
+					var(--accent-primary),
+					var(--accent-secondary)
+				);
+				color: white;
+				border: none;
+				padding: 1rem 3rem;
+				border-radius: 12px;
+				font-size: 1.1rem;
+				font-weight: 600;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+			}
+
+			.submit-btn:hover {
+				transform: translateY(-2px);
+				box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+			}
+
+			.submit-btn:active {
+				transform: translateY(0);
+			}
+
+			.submit-btn:disabled {
+				background: var(--text-secondary);
+				cursor: not-allowed;
+				transform: none;
+				box-shadow: none;
+			}
+
+			/* Success message */
+			.success-message {
+				text-align: center;
+				padding: 2rem;
+				animation: fadeIn 0.5s ease;
+			}
+
+			.success-message h2 {
+				color: var(--success);
+				font-size: 2rem;
+				margin-bottom: 1rem;
+			}
+
+			.success-message p {
+				color: var(--text-secondary);
+				font-size: 1.1rem;
+			}
+
 			.confidence-bar {
 				width: 100%;
 				height: 4px;
@@ -1090,13 +1183,19 @@
 					resultContent.appendChild(objectContainer);
 
 					// Render global items
-					await renderItems(globalItems, globalContainer);
+					await renderItems(globalItems, globalContainer, true); // Global items editable
 
 					// Render object items
-					await renderItems(objectItems, objectContainer);
+					await renderItems(objectItems, objectContainer, true); // Object items editable
+
+					// Add submit button after object items
+					addSubmitButton(objectContainer, data);
 				} else {
 					// No carousel needed - single object or old format
-					await renderItems(objectItems, resultContent);
+					await renderItems(objectItems, resultContent, true); // Object items editable
+
+					// Add submit button
+					addSubmitButton(resultContent, data);
 				}
 			}
 
@@ -1116,7 +1215,7 @@
 				}
 			}
 
-			async function renderItems(items, container) {
+			async function renderItems(items, container, editable = false) {
 				// Animate each result item
 				for (let i = 0; i < items.length; i++) {
 					const item = items[i];
@@ -1154,6 +1253,12 @@
 
 							const objectValue = document.createElement("div");
 							objectValue.textContent = val || "N/A";
+							if (editable) {
+								objectValue.contentEditable = "true";
+								objectValue.className = "editable-value";
+								objectValue.dataset.field = item.label;
+								objectValue.dataset.objectIndex = objIdx;
+							}
 
 							rowDiv.appendChild(objectLabel);
 							rowDiv.appendChild(objectValue);
@@ -1198,6 +1303,11 @@
 
 						const valueDiv = document.createElement("div");
 						valueDiv.className = "result-value";
+						if (editable) {
+							valueDiv.contentEditable = "true";
+							valueDiv.classList.add("editable-value");
+							valueDiv.dataset.field = item.label;
+						}
 
 						resultDiv.appendChild(labelDiv);
 						resultDiv.appendChild(valueDiv);
@@ -1228,15 +1338,50 @@
 						if (item.hasSecondary && item.value.includes(" + ")) {
 							const parts = item.value.split(" + ");
 							const primaryPart = parts[0];
-							const secondaryPart = parts[1];
+							const secondaryPart = parts[1]; // e.g., "black (20%)"
 
 							await typeWriter(valueDiv, primaryPart, 20);
 
-							// Add secondary part with styling
-							const secondarySpan = document.createElement("span");
-							secondarySpan.className = "secondary-characteristic";
-							secondarySpan.textContent = " + " + secondaryPart;
-							valueDiv.appendChild(secondarySpan);
+							// Parse secondary part to separate editable name from non-editable percentage
+							const secondaryMatch = secondaryPart.match(
+								/^([^(]+)\s*\((\d+%)\)$/
+							);
+							if (secondaryMatch && editable) {
+								// Editable secondary color/material name, non-editable percentage
+								const secondaryName = secondaryMatch[1].trim();
+								const secondaryPercentage = secondaryMatch[2];
+
+								const secondarySpan = document.createElement("span");
+								secondarySpan.className = "secondary-characteristic";
+								secondarySpan.textContent = " + ";
+
+								const editableSecondary = document.createElement("span");
+								editableSecondary.contentEditable = "true";
+								editableSecondary.className = "editable-value";
+								editableSecondary.style.display = "inline";
+								editableSecondary.style.padding = "2px 6px";
+								editableSecondary.style.minHeight = "auto";
+								editableSecondary.textContent = secondaryName;
+								editableSecondary.dataset.field = `${item.label} Secondary`;
+
+								const percentageSpan = document.createElement("span");
+								percentageSpan.contentEditable = "false";
+								percentageSpan.textContent = ` (${secondaryPercentage})`;
+								percentageSpan.style.userSelect = "none";
+
+								secondarySpan.appendChild(editableSecondary);
+								secondarySpan.appendChild(percentageSpan);
+								valueDiv.appendChild(secondarySpan);
+							} else {
+								// Non-editable or no match
+								const secondarySpan = document.createElement("span");
+								secondarySpan.className = "secondary-characteristic";
+								secondarySpan.textContent = " + " + secondaryPart;
+								if (editable) {
+									secondarySpan.contentEditable = "false";
+								}
+								valueDiv.appendChild(secondarySpan);
+							}
 						} else {
 							// Convert value to string to handle numbers properly
 							await typeWriter(valueDiv, String(item.value), 20);
@@ -1259,6 +1404,67 @@
                 </div>
             `;
 				document.getElementById("results").style.display = "block";
+			}
+
+			function addSubmitButton(container, originalData) {
+				const submitContainer = document.createElement("div");
+				submitContainer.className = "submit-container";
+
+				const submitBtn = document.createElement("button");
+				submitBtn.className = "submit-btn";
+				submitBtn.textContent = "✓ Submit to Database";
+				submitBtn.onclick = () => submitReviewedData(originalData);
+
+				submitContainer.appendChild(submitBtn);
+				container.appendChild(submitContainer);
+			}
+
+			async function submitReviewedData(originalData) {
+				const submitBtn = document.querySelector(".submit-btn");
+				submitBtn.disabled = true;
+				submitBtn.textContent = "⏳ Submitting...";
+
+				try {
+					// Collect all edited field values
+					const editableFields = document.querySelectorAll(".editable-value");
+					const editedData = { ...originalData };
+
+					// Process editable fields
+					editableFields.forEach((field) => {
+						const fieldName = field.dataset.field;
+						const objectIndex = field.dataset.objectIndex;
+						const value = field.textContent.trim();
+
+						// TODO: Update editedData based on field name and object index
+						// This will depend on your data structure
+					});
+
+					// Submit to database (placeholder - replace with actual API call)
+					await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API call
+
+					// Show success message
+					const resultContent = document.getElementById("resultContent");
+					resultContent.innerHTML = `
+					<div class="success-message">
+						<h2>✓ All Details Reviewed</h2>
+						<p>Successfully submitted to database!</p>
+						<p style="margin-top: 1rem;">Ready for next image...</p>
+					</div>
+				`;
+
+					// Clear the page after 2 seconds
+					setTimeout(() => {
+						// Reset the form
+						document.getElementById("imageInput").value = "";
+						document.getElementById("previewImage").style.display = "none";
+						document.getElementById("results").style.display = "none";
+						document.getElementById("resultContent").innerHTML = "";
+					}, 2000);
+				} catch (error) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = "✓ Submit to Database";
+					alert("Error submitting data: " + error.message);
+				}
 			}
 		</script>
 	</body>
