@@ -1,0 +1,76 @@
+# Ignore everything by default
+*
+
+# But allow these files and directories
+!.gitignore
+!.env.example
+!README.md
+!requirements.txt
+!requirements_no_pandas.txt
+!setup.sh
+!run.py
+!regenerate_descriptions.py
+
+# Allow the entire app directory
+!app/
+!app/**
+!app/**/*
+
+# Allow the entire frontend directory
+!frontend/
+!frontend/**
+!frontend/**/*
+
+# Allow the entire data directory
+!data/
+!data/**
+!data/**/*
+
+# Allow the entire tests directory
+!tests/
+!tests/**
+!tests/**/*
+
+# Allow Python files in root
+!*.py
+
+# Allow specific files in root
+!*.md
+!*.txt
+!*.sh
+
+# But still ignore sensitive files
+.env
+.env.local
+.env.production
+.env.staging
+*.key
+secrets.json
+
+# Ignore virtual environment
+venv/
+.venv/
+env/
+ENV/
+
+# Ignore cache and temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.cache/
+.pytest_cache/
+.mypy_cache/
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore system files
+.DS_Store
+Thumbs.db
+*.log
