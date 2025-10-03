@@ -269,6 +269,49 @@
 				animation: slideInRight 0.5s ease-out;
 			}
 
+			.carousel-controls {
+				display: flex;
+				gap: 1rem;
+				margin-bottom: 1.5rem;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.carousel-btn {
+				background: var(--bg-card);
+				color: var(--text-primary);
+				border: 2px solid var(--border);
+				padding: 0.75rem 1.5rem;
+				border-radius: 8px;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				font-weight: 500;
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+			}
+
+			.carousel-btn:hover {
+				background: var(--accent-primary);
+				color: white;
+				border-color: var(--accent-primary);
+				transform: translateY(-2px);
+			}
+
+			.carousel-btn.active {
+				background: var(--accent-primary);
+				color: white;
+				border-color: var(--accent-primary);
+			}
+
+			.carousel-content {
+				display: none;
+			}
+
+			.carousel-content.active {
+				display: block;
+			}
+
 			@keyframes slideInRight {
 				from {
 					opacity: 0;
@@ -617,9 +660,14 @@
 					if (multipleCheckResult.success) {
 						const moData = multipleCheckResult.data;
 						if (moData.multiple_objects) {
-							multipleObjectsMsg = `⚠️ Multiple objects detected: ${moData.brief_description}. Analysis may take longer.`;
+							// Remove trailing period from brief_description if present to avoid double periods
+							const desc =
+								moData.brief_description?.trim().replace(/\.$/, "") || "items";
+							multipleObjectsMsg = `⚠️ Multiple objects detected: ${desc}. Analysis may take longer.`;
 						} else {
-							multipleObjectsMsg = `✓ Single object detected: ${moData.brief_description}`;
+							const desc =
+								moData.brief_description?.trim().replace(/\.$/, "") || "item";
+							multipleObjectsMsg = `✓ Single object detected: ${desc}`;
 						}
 
 						// Show the multiple objects result immediately
@@ -650,6 +698,14 @@
 					// Create new FormData for second request
 					const formData2 = new FormData();
 					formData2.append("file", selectedFile);
+
+					// Pass multiple objects data if available
+					if (multipleCheckResult.success && multipleCheckResult.data) {
+						formData2.append(
+							"multiple_objects_json",
+							JSON.stringify(multipleCheckResult.data)
+						);
+					}
 
 					const response = await fetch("/api/generate-description", {
 						method: "POST",
@@ -722,7 +778,8 @@
 					resultContent.appendChild(msgDiv);
 				}
 
-				const items = [];
+				const globalItems = [];
+				const objectItems = [];
 
 				// Handle the new JSON format from your prompt
 				if (data.fields) {
@@ -730,113 +787,239 @@
 					const confidence = data.confidence || {};
 					const evidence = data.evidence || {};
 
-					// Build color value with secondary
-					let colorValue = fields.colour || "N/A";
-					if (
-						fields.colour_secondary &&
-						fields.colour_secondary.color &&
-						fields.colour_secondary.color !== "null" &&
-						fields.colour_secondary.percentage > 0
-					) {
-						colorValue += ` + ${fields.colour_secondary.color} (${fields.colour_secondary.percentage}%)`;
-					}
+					// Check if this is multi-object format (arrays)
+					const isMultiObject = Array.isArray(fields.brand);
 
-					// Build material value with secondary
-					let materialValue = fields.material || "N/A";
-					if (
-						fields.material_secondary &&
-						fields.material_secondary.material &&
-						fields.material_secondary.material !== "null" &&
-						fields.material_secondary.percentage > 0
-					) {
-						materialValue += ` + ${fields.material_secondary.material} (${fields.material_secondary.percentage}%)`;
-					}
+					if (isMultiObject) {
+						// MULTIPLE OBJECTS - separate global and per-object details
+						const objectCount = fields.brand.length;
 
-					items.push(
-						{
-							label: "Description",
-							value: data.description || "N/A",
-							confidence: null,
-						},
-						{
-							label: "Brand",
-							value: fields.brand || "Not identified",
-							confidence: confidence.brand,
-						},
-						{
-							label: "Model",
-							value: fields.model || "Not identified",
-							confidence: confidence.model,
-						},
-						{
-							label: "Condition",
-							value: fields.condition || "N/A",
-							confidence: confidence.condition,
-						},
-						{
-							label: "Color",
-							value: colorValue,
-							confidence: confidence.colour,
-							hasSecondary:
-								fields.colour_secondary?.color &&
-								fields.colour_secondary.color !== "null" &&
-								fields.colour_secondary.percentage > 0,
-						},
-						{
-							label: "Material",
-							value: materialValue,
-							confidence: confidence.material,
-							hasSecondary:
-								fields.material_secondary?.material &&
-								fields.material_secondary.material !== "null" &&
-								fields.material_secondary.percentage > 0,
-						},
-						{
-							label: "Category",
-							value: fields.category || "N/A",
-							confidence: confidence.category,
-						},
-						{
-							label: "Weight",
-							value: fields.weight?.value
-								? `${fields.weight.value} ${fields.weight.unit}`
-								: "Not specified",
-							confidence: confidence.weight,
-						},
-						{
-							label: "Print Label",
-							value: fields.print_label ? "Yes" : "No",
-							confidence: confidence.print_label,
-						},
-						{
-							label: "Sort Classification",
-							value: fields.sort || "N/A",
-							confidence: confidence.sort,
-						},
-						{
-							label: "Additional Info",
-							value: fields.additional_info || "N/A",
-							confidence: null,
-						},
-						{
-							label: "OCR Text",
-							value: evidence.ocr_like_text || "None detected",
-							confidence: null,
-						},
-						{
-							label: "Visible Marks",
-							value: evidence.visible_marks || "None noted",
-							confidence: null,
-						},
-						{
-							label: "Needs Review",
-							value: data.needs_review ? "Yes" : "No",
-							confidence: null,
+						// GLOBAL ITEMS (image-wide info)
+						// Always create global items, with fallbacks if data.global is missing
+						const globalData = data.global || {};
+						globalItems.push(
+							{
+								label: "Object Count",
+								value: globalData.object_count || objectCount,
+								confidence: null,
+							},
+							{
+								label: "Print Label",
+								value: globalData.print_label ? "Yes" : "No",
+								confidence: null,
+							},
+							{
+								label: "OCR Text",
+								value: globalData.ocr_text || "None detected",
+								confidence: null,
+							},
+							{
+								label: "Visible Marks",
+								value: globalData.visible_marks || "None noted",
+								confidence: null,
+							},
+							{
+								label: "Needs Review",
+								value: globalData.needs_review ? "Yes" : "No",
+								confidence: null,
+							}
+						);
+
+						// OBJECT-SPECIFIC ITEMS (per-object details)
+						// Descriptions (one per object)
+						if (data.descriptions && Array.isArray(data.descriptions)) {
+							data.descriptions.forEach((desc, idx) => {
+								objectItems.push({
+									label: `Description (Object ${idx + 1})`,
+									value: desc || "N/A",
+									confidence: null,
+								});
+							});
 						}
-					);
+
+						// For each field, create a multi-object item with separate rows
+						objectItems.push(
+							{
+								label: "Brand",
+								isMulti: true,
+								values: fields.brand,
+								confidences: confidence.brand,
+							},
+							{
+								label: "Model",
+								isMulti: true,
+								values: fields.model,
+								confidences: confidence.model,
+							},
+							{
+								label: "Quantity",
+								isMulti: true,
+								values: fields.quantity,
+								confidences: confidence.quantity,
+							},
+							{
+								label: "Condition",
+								isMulti: true,
+								values: fields.condition,
+								confidences: confidence.condition,
+							},
+							{
+								label: "Color",
+								isMulti: true,
+								values: fields.colour,
+								confidences: confidence.colour,
+							},
+							{
+								label: "Material",
+								isMulti: true,
+								values: fields.material,
+								confidences: confidence.material,
+							},
+							{
+								label: "Category",
+								isMulti: true,
+								values: fields.category,
+								confidences: confidence.category,
+							},
+							{
+								label: "Additional Info",
+								isMulti: true,
+								values: fields.additional_info,
+								confidences: null,
+							}
+						);
+					} else {
+						// SINGLE OBJECT - also use carousel for consistency
+						const globalData = data.evidence || {};
+
+						// GLOBAL ITEMS
+						globalItems.push(
+							{
+								label: "Object Count",
+								value: 1,
+								confidence: null,
+							},
+							{
+								label: "Print Label",
+								value: fields.print_label ? "Yes" : "No",
+								confidence: null,
+							},
+							{
+								label: "OCR Text",
+								value: globalData.ocr_like_text || "None detected",
+								confidence: null,
+							},
+							{
+								label: "Visible Marks",
+								value: globalData.visible_marks || "None noted",
+								confidence: null,
+							},
+							{
+								label: "Needs Review",
+								value: data.needs_review ? "Yes" : "No",
+								confidence: null,
+							}
+						);
+
+						// OBJECT-SPECIFIC ITEMS
+						// Build color value with secondary
+						let colorValue = fields.colour || "N/A";
+						if (
+							fields.colour_secondary &&
+							fields.colour_secondary.color &&
+							fields.colour_secondary.color !== "null" &&
+							fields.colour_secondary.percentage > 0
+						) {
+							colorValue += ` + ${fields.colour_secondary.color} (${fields.colour_secondary.percentage}%)`;
+						}
+
+						// Build material value with secondary
+						let materialValue = fields.material || "N/A";
+						if (
+							fields.material_secondary &&
+							fields.material_secondary.material &&
+							fields.material_secondary.material !== "null" &&
+							fields.material_secondary.percentage > 0
+						) {
+							materialValue += ` + ${fields.material_secondary.material} (${fields.material_secondary.percentage}%)`;
+						}
+
+						objectItems.push(
+							{
+								label: "Description",
+								value: data.description || "N/A",
+								confidence: null,
+							},
+							{
+								label: "Brand",
+								value: fields.brand || "Not identified",
+								confidence: confidence.brand,
+							},
+							{
+								label: "Model",
+								value: fields.model || "Not identified",
+								confidence: confidence.model,
+							},
+							{
+								label: "Quantity",
+								value: fields.quantity || 1,
+								confidence: confidence.quantity,
+							},
+							{
+								label: "Condition",
+								value: fields.condition || "N/A",
+								confidence: confidence.condition,
+							},
+							{
+								label: "Color",
+								value: colorValue,
+								confidence: confidence.colour,
+								hasSecondary:
+									fields.colour_secondary?.color &&
+									fields.colour_secondary.color !== "null" &&
+									fields.colour_secondary.percentage > 0,
+							},
+							{
+								label: "Material",
+								value: materialValue,
+								confidence: confidence.material,
+								hasSecondary:
+									fields.material_secondary?.material &&
+									fields.material_secondary.material !== "null" &&
+									fields.material_secondary.percentage > 0,
+							},
+							{
+								label: "Category",
+								value: fields.category || "N/A",
+								confidence: confidence.category,
+							},
+							{
+								label: "Weight",
+								value: fields.weight?.value
+									? `${fields.weight.value} ${fields.weight.unit}`
+									: "Not specified",
+								confidence: confidence.weight,
+							},
+							{
+								label: "Print Label",
+								value: fields.print_label ? "Yes" : "No",
+								confidence: confidence.print_label,
+							},
+							{
+								label: "Sort Classification",
+								value: fields.sort || "N/A",
+								confidence: confidence.sort,
+							},
+							{
+								label: "Additional Info",
+								value: fields.additional_info || "N/A",
+								confidence: null,
+							}
+						);
+					}
 				} else {
-					// Fallback for old format
-					items.push(
+					// Fallback for old format (single object with old structure)
+					objectItems.push(
 						{ label: "Title", value: data.title || "N/A", confidence: null },
 						{
 							label: "Description",
@@ -872,60 +1055,192 @@
 					);
 				}
 
+				// Check if we need carousel (multi-object with global items)
+				const needsCarousel = globalItems.length > 0 && objectItems.length > 0;
+
+				if (needsCarousel) {
+					// Create carousel controls
+					const carouselControls = document.createElement("div");
+					carouselControls.className = "carousel-controls";
+
+					const globalBtn = document.createElement("button");
+					globalBtn.className = "carousel-btn active";
+					globalBtn.innerHTML = "📊 Global Details";
+					globalBtn.onclick = () => switchCarousel("global");
+
+					const objectBtn = document.createElement("button");
+					objectBtn.className = "carousel-btn";
+					objectBtn.innerHTML = "🔍 Per-Object Details";
+					objectBtn.onclick = () => switchCarousel("objects");
+
+					carouselControls.appendChild(globalBtn);
+					carouselControls.appendChild(objectBtn);
+					resultContent.appendChild(carouselControls);
+
+					// Create global content container
+					const globalContainer = document.createElement("div");
+					globalContainer.id = "globalContent";
+					globalContainer.className = "carousel-content active";
+					resultContent.appendChild(globalContainer);
+
+					// Create object content container
+					const objectContainer = document.createElement("div");
+					objectContainer.id = "objectContent";
+					objectContainer.className = "carousel-content";
+					resultContent.appendChild(objectContainer);
+
+					// Render global items
+					await renderItems(globalItems, globalContainer);
+
+					// Render object items
+					await renderItems(objectItems, objectContainer);
+				} else {
+					// No carousel needed - single object or old format
+					await renderItems(objectItems, resultContent);
+				}
+			}
+
+			function switchCarousel(tab) {
+				const buttons = document.querySelectorAll(".carousel-btn");
+				const contents = document.querySelectorAll(".carousel-content");
+
+				buttons.forEach((btn) => btn.classList.remove("active"));
+				contents.forEach((content) => content.classList.remove("active"));
+
+				if (tab === "global") {
+					buttons[0].classList.add("active");
+					document.getElementById("globalContent").classList.add("active");
+				} else {
+					buttons[1].classList.add("active");
+					document.getElementById("objectContent").classList.add("active");
+				}
+			}
+
+			async function renderItems(items, container) {
 				// Animate each result item
 				for (let i = 0; i < items.length; i++) {
 					const item = items[i];
-					const resultDiv = document.createElement("div");
-					resultDiv.className = "result-item";
-					resultDiv.style.animationDelay = `${i * 0.1}s`;
 
-					const labelDiv = document.createElement("div");
-					labelDiv.className = "result-label";
-					labelDiv.textContent = item.label;
+					if (item.isMulti && item.values) {
+						// MULTI-OBJECT ITEM - create card with multiple rows
+						const resultDiv = document.createElement("div");
+						resultDiv.className = "result-item";
+						resultDiv.style.animationDelay = `${i * 0.1}s`;
 
-					const valueDiv = document.createElement("div");
-					valueDiv.className = "result-value";
+						const labelDiv = document.createElement("div");
+						labelDiv.className = "result-label";
+						labelDiv.textContent = item.label;
+						resultDiv.appendChild(labelDiv);
 
-					resultDiv.appendChild(labelDiv);
-					resultDiv.appendChild(valueDiv);
+						// Container for all object rows
+						const valuesContainer = document.createElement("div");
+						valuesContainer.className = "result-value";
+						valuesContainer.style.display = "flex";
+						valuesContainer.style.flexDirection = "column";
+						valuesContainer.style.gap = "0.75rem";
 
-					if (item.confidence !== null && item.confidence !== undefined) {
-						const confidenceBar = document.createElement("div");
-						confidenceBar.className = "confidence-bar";
-						const confidenceFill = document.createElement("div");
-						confidenceFill.className = "confidence-fill";
-						confidenceFill.style.width = "0%";
-						confidenceBar.appendChild(confidenceFill);
-						resultDiv.appendChild(confidenceBar);
+						// Create a row for each object
+						item.values.forEach((val, objIdx) => {
+							const rowDiv = document.createElement("div");
+							rowDiv.style.display = "flex";
+							rowDiv.style.flexDirection = "column";
+							rowDiv.style.gap = "0.5rem";
 
-						// Animate confidence bar after text
-						setTimeout(() => {
-							confidenceFill.style.width = `${(item.confidence * 100).toFixed(
-								0
-							)}%`;
-						}, (i + 1) * 200 + 500);
-					}
+							const objectLabel = document.createElement("div");
+							objectLabel.style.fontSize = "0.85rem";
+							objectLabel.style.color = "var(--accent-primary)";
+							objectLabel.style.fontWeight = "500";
+							objectLabel.textContent = `Object ${objIdx + 1}:`;
 
-					resultContent.appendChild(resultDiv);
+							const objectValue = document.createElement("div");
+							objectValue.textContent = val || "N/A";
 
-					// Typewriter effect for each value
-					await new Promise((resolve) => setTimeout(resolve, i * 100));
+							rowDiv.appendChild(objectLabel);
+							rowDiv.appendChild(objectValue);
 
-					// Handle secondary characteristics styling
-					if (item.hasSecondary && item.value.includes(" + ")) {
-						const parts = item.value.split(" + ");
-						const primaryPart = parts[0];
-						const secondaryPart = parts[1];
+							// Add confidence bar if available
+							if (
+								item.confidences &&
+								item.confidences[objIdx] !== null &&
+								item.confidences[objIdx] !== undefined
+							) {
+								const confidenceBar = document.createElement("div");
+								confidenceBar.className = "confidence-bar";
+								const confidenceFill = document.createElement("div");
+								confidenceFill.className = "confidence-fill";
+								confidenceFill.style.width = "0%";
+								confidenceBar.appendChild(confidenceFill);
+								rowDiv.appendChild(confidenceBar);
 
-						await typeWriter(valueDiv, primaryPart, 20);
+								// Animate confidence bar
+								setTimeout(() => {
+									confidenceFill.style.width = `${(
+										item.confidences[objIdx] * 100
+									).toFixed(0)}%`;
+								}, (i + 1) * 200 + 500);
+							}
 
-						// Add secondary part with styling
-						const secondarySpan = document.createElement("span");
-						secondarySpan.className = "secondary-characteristic";
-						secondarySpan.textContent = " + " + secondaryPart;
-						valueDiv.appendChild(secondarySpan);
+							valuesContainer.appendChild(rowDiv);
+						});
+
+						resultDiv.appendChild(valuesContainer);
+						container.appendChild(resultDiv);
+						await new Promise((resolve) => setTimeout(resolve, i * 100));
 					} else {
-						await typeWriter(valueDiv, item.value, 20);
+						// SINGLE VALUE ITEM - original logic
+						const resultDiv = document.createElement("div");
+						resultDiv.className = "result-item";
+						resultDiv.style.animationDelay = `${i * 0.1}s`;
+
+						const labelDiv = document.createElement("div");
+						labelDiv.className = "result-label";
+						labelDiv.textContent = item.label;
+
+						const valueDiv = document.createElement("div");
+						valueDiv.className = "result-value";
+
+						resultDiv.appendChild(labelDiv);
+						resultDiv.appendChild(valueDiv);
+
+						if (item.confidence !== null && item.confidence !== undefined) {
+							const confidenceBar = document.createElement("div");
+							confidenceBar.className = "confidence-bar";
+							const confidenceFill = document.createElement("div");
+							confidenceFill.className = "confidence-fill";
+							confidenceFill.style.width = "0%";
+							confidenceBar.appendChild(confidenceFill);
+							resultDiv.appendChild(confidenceBar);
+
+							// Animate confidence bar after text
+							setTimeout(() => {
+								confidenceFill.style.width = `${(item.confidence * 100).toFixed(
+									0
+								)}%`;
+							}, (i + 1) * 200 + 500);
+						}
+
+						container.appendChild(resultDiv);
+
+						// Typewriter effect for each value
+						await new Promise((resolve) => setTimeout(resolve, i * 100));
+
+						// Handle secondary characteristics styling
+						if (item.hasSecondary && item.value.includes(" + ")) {
+							const parts = item.value.split(" + ");
+							const primaryPart = parts[0];
+							const secondaryPart = parts[1];
+
+							await typeWriter(valueDiv, primaryPart, 20);
+
+							// Add secondary part with styling
+							const secondarySpan = document.createElement("span");
+							secondarySpan.className = "secondary-characteristic";
+							secondarySpan.textContent = " + " + secondaryPart;
+							valueDiv.appendChild(secondarySpan);
+						} else {
+							// Convert value to string to handle numbers properly
+							await typeWriter(valueDiv, String(item.value), 20);
+						}
 					}
 				}
 			}

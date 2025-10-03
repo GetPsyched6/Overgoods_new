@@ -186,7 +186,9 @@ Return ONLY a JSON object:
             print(error_msg)
             return {"success": False, "error": error_msg}
 
-    def generate_product_description(self, image_path: str) -> Dict[str, Any]:
+    def generate_product_description(
+        self, image_path: str, multiple_objects_data: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
         """Generate product description from image using Watsonx API"""
 
         try:
@@ -196,8 +198,70 @@ Return ONLY a JSON object:
             # Encode the image
             image_base64 = self.encode_image(image_path)
 
-            # Your specific prompt
-            prompt = """You are a detail-focused visual inspector with expertise in product identification.
+            # Build prompt based on whether we have multiple objects
+            if multiple_objects_data and multiple_objects_data.get("multiple_objects"):
+                object_count = multiple_objects_data.get("count", 2)
+                # Your specific prompt for MULTIPLE objects
+                prompt = f"""You are a detail-focused visual inspector with expertise in product identification.
+
+**CRITICAL: MULTIPLE OBJECTS DETECTED - ANALYZE EACH SEPARATELY**
+This image contains {object_count} distinct objects. You must analyze EACH object individually and return data as ARRAYS.
+
+For each field, provide an array with {object_count} entries, one for each object in order (left to right, or primary to secondary).
+
+**CRITICAL: IDENTIFY BRANDS AND MODELS FOR EACH OBJECT**
+- Look for ANY visible branding, logos, or model identifiers on EACH object
+- Each object gets its own brand, model, color, material, etc.
+- Examples: Game Boy + Game Cartridge → ["Nintendo", "Nintendo"], ["Game Boy Advance SP", "Super Mario Advance"]
+
+Return **ONLY** a valid JSON object with this schema:
+
+{{
+  "fields": {{
+    "condition": ["new|open_box|used|damaged|unknown", ...],
+    "colour": ["black|white|gray|silver|gold|red|blue|green|brown|beige|transparent|unknown", ...],
+    "material": ["plastic|metal|textile|paper|cardboard|wood|glass|ceramic|other|unknown", ...],
+    "category": ["apparel|electronics|housewares|toys|tools|books|beauty|sports|other|unknown", ...],
+    "brand": ["", ...],
+    "model": ["", ...],
+    "quantity": [1, ...],
+    "additional_info": ["", ...]
+  }},
+  "confidence": {{
+    "condition": [0.0, ...],
+    "colour": [0.0, ...],
+    "material": [0.0, ...],
+    "category": [0.0, ...],
+    "brand": [0.0, ...],
+    "model": [0.0, ...],
+    "quantity": [0.0, ...]
+  }},
+  "descriptions": ["Rich detailed description of object 1 with brand, model, condition, distinctive features", "Rich detailed description of object 2...", ...],
+  "global": {{
+    "object_count": {object_count},
+    "print_label": false,
+    "ocr_text": "ALL visible text from the image",
+    "visible_marks": "logos, serial numbers, any identifiers",
+    "needs_review": false
+  }}
+}}
+
+Instructions:
+- Each array must have EXACTLY {object_count} entries
+- Order: left to right, or primary object first
+- **descriptions**: Write DETAILED 2-3 sentence descriptions for each object including brand, model, condition, color, distinctive features
+- **quantity**: COUNT how many of each object type are visible. If there are 5 plates, quantity=5. If 1 Game Boy, quantity=1. Be precise!
+- **additional_info**: Include EVERYTHING - model numbers, serial numbers, generation info, special editions, any visible text on that specific object, unique identifiers, version details, region codes, anything that helps identify the exact variant
+- **Brand/Model**: Be aggressive in identification - use button layouts, port configs, design language, any visual cues
+- **global.object_count**: MUST be {object_count} (the number of distinct object TYPES, not total quantity)
+- **global.print_label**: true ONLY if there's a shipping label, barcode sticker, or SKU label visible (NOT product branding)
+- **global.ocr_text**: Extract ALL readable text from the entire image including product names, model numbers, any text on objects or packaging
+- **global.visible_marks**: Note any logos, serial numbers, QR codes, barcodes visible anywhere in the image
+
+Output JSON only—no extra prose outside the JSON."""
+            else:
+                # Single object prompt (original)
+                prompt = """You are a detail-focused visual inspector with expertise in product identification.
 
 Goal: From ONE photo of a single item, produce a COMPLETE structured record with MAXIMUM detail extraction. Favor **best-guess, high-coverage outputs**. Use visual cues (shape, components, texture, design language), printed text, logos, icons, packaging hints, model-specific features, and common-sense priors. If something is uncertain, still provide the **most probable** value and reflect that in the confidence score. Use "unknown" **only** when there is truly no reasonable inference.
 
@@ -227,6 +291,7 @@ Return **ONLY** a valid JSON object with this exact schema:
     "category": "apparel|electronics|housewares|toys|tools|books|beauty|sports|other|unknown",
     "brand": "",
     "model": "",
+    "quantity": 1,
     "weight": { "value": null, "unit": "g|kg|lb|oz|null" },
     "print_label": true,
     "sort": "known_overgoods|vague_overgoods",
@@ -241,6 +306,7 @@ Return **ONLY** a valid JSON object with this exact schema:
     "category": 0.0,
     "brand": 0.0,
     "model": 0.0,
+    "quantity": 0.0,
     "weight": 0.0,
     "print_label": 0.0,
     "sort": 0.0
@@ -262,6 +328,7 @@ Instructions & heuristics:
 - **Category**: prefer the closest fit from the list; if borderline, choose the most probable and reflect uncertainty via confidence.
 - **Brand**: Extract from visible logos, text, or infer from distinctive design features. Be aggressive in identification.
 - **Model**: Identify specific model/version based on visual features, button layouts, ports, design generation. Include generation info (e.g., "Series X", "360", "One S").
+- **Quantity**: COUNT how many of this item are visible in the image. If you see 5 plates, quantity=5. If 1 controller, quantity=1. Be precise and count carefully!
 - **Weight**: ONLY if printed/legible on the image; otherwise leave value=null and unit=null but still include a brief rationale in `additional_info` if an apparent size/form suggests a typical range (do NOT invent numbers).
 - **print_label = true** if a barcode/QR/SKU/address block or shipping label is visibly present (even if partially unreadable).
 - **sort** = "known_overgoods" if there is any strong identifier (barcode/SKU/model/no. or clearly addressed label); otherwise "vague_overgoods".
@@ -364,18 +431,46 @@ Output JSON only—no extra prose outside the JSON."""
                             "raw_response": generated_text,
                         }
                     else:
-                        return {
-                            "success": False,
-                            "error": "Could not find valid JSON in response",
-                            "raw_response": generated_text,
-                        }
+                        # FALLBACK: Try to extract data from non-JSON formats
+                        print(
+                            f"No JSON delimiters found, attempting fallback extraction..."
+                        )
+                        fallback_data = self._extract_fallback_data(
+                            generated_text, multiple_objects_data
+                        )
+                        if fallback_data:
+                            print(f"Fallback extraction successful!")
+                            return {
+                                "success": True,
+                                "data": fallback_data,
+                                "raw_response": generated_text,
+                            }
+                        else:
+                            return {
+                                "success": False,
+                                "error": "Could not find valid JSON in response",
+                                "raw_response": generated_text,
+                            }
 
                 except json.JSONDecodeError as e:
-                    return {
-                        "success": False,
-                        "error": f"JSON parsing error: {str(e)}",
-                        "raw_response": generated_text,
-                    }
+                    # FALLBACK: Try to extract data from bullet points or other formats
+                    print(f"JSON parsing failed, attempting fallback extraction...")
+                    fallback_data = self._extract_fallback_data(
+                        generated_text, multiple_objects_data
+                    )
+                    if fallback_data:
+                        print(f"Fallback extraction successful!")
+                        return {
+                            "success": True,
+                            "data": fallback_data,
+                            "raw_response": generated_text,
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": f"JSON parsing error: {str(e)}",
+                            "raw_response": generated_text,
+                        }
             else:
                 error_msg = f"API call failed: {response.status_code} - {response.text}"
                 print(error_msg)
@@ -579,3 +674,303 @@ Provide a concise search description (1-2 sentences) that captures the essential
         except Exception as e:
             print(f"Natural language processing error: {e}")
             return {"success": False, "error": f"Processing error: {str(e)}"}
+
+    def _extract_fallback_data(
+        self, text: str, multiple_objects_data: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Fallback parser to extract data from non-JSON AI responses (e.g., bullet points).
+        Returns a valid data structure or None if extraction fails.
+        """
+        import re
+
+        try:
+            is_multi = multiple_objects_data is not None and multiple_objects_data.get(
+                "multiple_objects", False
+            )
+            object_count = multiple_objects_data.get("count", 1) if is_multi else 1
+
+            if is_multi:
+                # Multi-object fallback parsing
+                print(
+                    f"Attempting multi-object fallback extraction for {object_count} objects..."
+                )
+
+                # Initialize arrays for each field
+                fields = {
+                    "condition": [],
+                    "colour": [],
+                    "material": [],
+                    "category": [],
+                    "brand": [],
+                    "model": [],
+                    "quantity": [],
+                    "additional_info": [],
+                }
+                confidence = {
+                    "condition": [],
+                    "colour": [],
+                    "material": [],
+                    "category": [],
+                    "brand": [],
+                    "model": [],
+                    "quantity": [],
+                }
+                descriptions = []
+
+                # Try to extract object-by-object data
+                object_patterns = [
+                    r"\*\*Object (\d+):[^*]+\*\*",  # **Object 1: Name**
+                    r"Object (\d+):",  # Object 1:
+                ]
+
+                # Find all object sections
+                for obj_idx in range(object_count):
+                    obj_num = obj_idx + 1
+
+                    # Extract fields for this object using various patterns
+                    condition = self._extract_field(
+                        text,
+                        f"Object {obj_num}",
+                        ["Condition", "condition"],
+                        ["used", "new", "open_box", "damaged", "unknown"],
+                    )
+                    colour = self._extract_field(
+                        text,
+                        f"Object {obj_num}",
+                        ["Colour", "Color", "colour", "color"],
+                        [
+                            "red",
+                            "blue",
+                            "black",
+                            "white",
+                            "gray",
+                            "silver",
+                            "gold",
+                            "green",
+                            "brown",
+                            "beige",
+                            "transparent",
+                            "unknown",
+                        ],
+                    )
+                    material = self._extract_field(
+                        text,
+                        f"Object {obj_num}",
+                        ["Material", "material"],
+                        [
+                            "plastic",
+                            "metal",
+                            "textile",
+                            "paper",
+                            "cardboard",
+                            "wood",
+                            "glass",
+                            "ceramic",
+                            "other",
+                            "unknown",
+                        ],
+                    )
+                    category = self._extract_field(
+                        text,
+                        f"Object {obj_num}",
+                        ["Category", "category"],
+                        [
+                            "electronics",
+                            "apparel",
+                            "housewares",
+                            "toys",
+                            "tools",
+                            "books",
+                            "beauty",
+                            "sports",
+                            "other",
+                            "unknown",
+                        ],
+                    )
+                    brand = self._extract_field(
+                        text, f"Object {obj_num}", ["Brand", "brand"], None
+                    )
+                    model = self._extract_field(
+                        text, f"Object {obj_num}", ["Model", "model"], None
+                    )
+                    quantity = self._extract_field(
+                        text, f"Object {obj_num}", ["Quantity", "quantity"], None
+                    )
+
+                    fields["condition"].append(condition or "unknown")
+                    fields["colour"].append(colour or "unknown")
+                    fields["material"].append(material or "unknown")
+                    fields["category"].append(category or "unknown")
+                    fields["brand"].append(brand or "")
+                    fields["model"].append(model or "")
+                    fields["quantity"].append(
+                        int(quantity) if quantity and quantity.isdigit() else 1
+                    )
+                    fields["additional_info"].append("")
+
+                    # Set default confidence
+                    for key in confidence:
+                        confidence[key].append(0.5)
+
+                    descriptions.append(
+                        f"Object {obj_num}: {brand or 'Unknown'} {model or 'item'}"
+                    )
+
+                return {
+                    "fields": fields,
+                    "confidence": confidence,
+                    "descriptions": descriptions,
+                    "global": {
+                        "object_count": object_count,
+                        "print_label": False,
+                        "ocr_text": "",
+                        "visible_marks": "",
+                        "needs_review": True,  # Mark for review since this is fallback data
+                    },
+                }
+            else:
+                # Single-object fallback parsing
+                print(f"Attempting single-object fallback extraction...")
+
+                condition = self._extract_field(
+                    text,
+                    None,
+                    ["Condition", "condition"],
+                    ["used", "new", "open_box", "damaged", "unknown"],
+                )
+                colour = self._extract_field(
+                    text,
+                    None,
+                    ["Colour", "Color", "colour", "color"],
+                    [
+                        "red",
+                        "blue",
+                        "black",
+                        "white",
+                        "gray",
+                        "silver",
+                        "gold",
+                        "green",
+                        "brown",
+                        "beige",
+                        "transparent",
+                        "unknown",
+                    ],
+                )
+                material = self._extract_field(
+                    text,
+                    None,
+                    ["Material", "material"],
+                    [
+                        "plastic",
+                        "metal",
+                        "textile",
+                        "paper",
+                        "cardboard",
+                        "wood",
+                        "glass",
+                        "ceramic",
+                        "other",
+                        "unknown",
+                    ],
+                )
+                category = self._extract_field(
+                    text,
+                    None,
+                    ["Category", "category"],
+                    [
+                        "electronics",
+                        "apparel",
+                        "housewares",
+                        "toys",
+                        "tools",
+                        "books",
+                        "beauty",
+                        "sports",
+                        "other",
+                        "unknown",
+                    ],
+                )
+                brand = self._extract_field(text, None, ["Brand", "brand"], None)
+                model = self._extract_field(text, None, ["Model", "model"], None)
+                quantity = self._extract_field(
+                    text, None, ["Quantity", "quantity"], None
+                )
+
+                return {
+                    "fields": {
+                        "condition": condition or "unknown",
+                        "colour": colour or "unknown",
+                        "colour_secondary": {"color": "null", "percentage": 0},
+                        "material": material or "unknown",
+                        "material_secondary": {"material": "null", "percentage": 0},
+                        "category": category or "unknown",
+                        "brand": brand or "",
+                        "model": model or "",
+                        "quantity": (
+                            int(quantity) if quantity and quantity.isdigit() else 1
+                        ),
+                        "weight": {"value": None, "unit": "null"},
+                        "print_label": False,
+                        "sort": "vague_overgoods",
+                        "additional_info": "",
+                    },
+                    "confidence": {
+                        "condition": 0.5,
+                        "colour": 0.5,
+                        "colour_secondary": 0.0,
+                        "material": 0.5,
+                        "material_secondary": 0.0,
+                        "category": 0.5,
+                        "brand": 0.5,
+                        "model": 0.5,
+                        "quantity": 0.5,
+                        "weight": 0.0,
+                        "print_label": 0.5,
+                        "sort": 0.5,
+                    },
+                    "description": f"{brand or 'Unknown'} {model or 'item'}",
+                    "evidence": {"ocr_like_text": "", "visible_marks": ""},
+                    "needs_review": True,  # Mark for review since this is fallback data
+                }
+
+        except Exception as e:
+            print(f"Fallback extraction error: {e}")
+            return None
+
+    def _extract_field(
+        self,
+        text: str,
+        object_prefix: str,
+        field_names: list,
+        valid_values: list = None,
+    ) -> str:
+        """
+        Helper to extract a field value from text using various patterns.
+        """
+        import re
+
+        for field_name in field_names:
+            # Pattern 1: **Field:** value or * **Field:** value
+            if object_prefix:
+                pattern = (
+                    rf"{object_prefix}[^\n]*?[\*\s]*{field_name}[\*\s]*:[\s]*([^\n]+)"
+                )
+            else:
+                pattern = rf"[\*\s]*{field_name}[\*\s]*:[\s]*([^\n]+)"
+
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                value = match.group(1).strip().strip("*").strip()
+
+                # If valid_values provided, check if extracted value is in the list
+                if valid_values:
+                    value_lower = value.lower()
+                    for valid_val in valid_values:
+                        if valid_val.lower() in value_lower:
+                            return valid_val
+                else:
+                    return value
+
+        return None
