@@ -18,6 +18,12 @@ pip install --upgrade pip
 echo "Installing requirements..."
 pip install -r requirements.txt
 
+# Create necessary directories
+echo "Creating directories..."
+mkdir -p uploads
+mkdir -p static
+mkdir -p chroma_db
+
 echo "✅ Setup complete!"
 echo ""
 echo "To run the application:"
