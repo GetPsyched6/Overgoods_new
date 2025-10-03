@@ -63,14 +63,52 @@ async def reprocess_descriptions():
         )
 
 
-@router.post("/api/generate-description")
-async def generate_description(file: UploadFile = File(...)):
-    """Generate product description from uploaded image"""
+@router.post("/api/check-multiple-objects")
+async def check_multiple_objects(file: UploadFile = File(...)):
+    """Check if image contains multiple objects"""
     try:
         # Save uploaded file
         file_path = save_uploaded_file(file)
 
-        # Generate description using Watsonx
+        # Check for multiple objects
+        multiple_check = watsonx_client.check_multiple_objects(file_path)
+
+        # Clean up uploaded file
+        try:
+            os.remove(file_path)
+        except:
+            pass
+
+        if multiple_check["success"]:
+            return JSONResponse(
+                content={
+                    "success": True,
+                    "data": multiple_check["data"],
+                }
+            )
+        else:
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "success": False,
+                    "error": multiple_check["error"],
+                },
+            )
+
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@router.post("/api/generate-description")
+async def generate_description(file: UploadFile = File(...)):
+    """Generate product description from uploaded image - just does the main analysis"""
+    try:
+        # Save uploaded file
+        file_path = save_uploaded_file(file)
+
+        # Generate description using Watsonx (no multiple object check here - already done in Step 1)
         result = watsonx_client.generate_product_description(file_path)
 
         # Clean up uploaded file

@@ -16,9 +16,9 @@ class SimpleWatsonxClient:
         self.url = config.WATSONX_URL
         self.access_token = None
 
-    def get_access_token(self) -> str:
+    def get_access_token(self, force_refresh: bool = False) -> str:
         """Get access token for Watsonx API"""
-        if self.access_token:
+        if self.access_token and not force_refresh:
             return self.access_token
 
         auth_url = "https://iam.cloud.ibm.com/identity/token"
@@ -43,6 +43,149 @@ class SimpleWatsonxClient:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
+    def check_multiple_objects(self, image_path: str) -> Dict[str, Any]:
+        """Check if image contains multiple distinct objects"""
+
+        try:
+            # Get access token
+            access_token = self.get_access_token()
+
+            # Encode the image
+            image_base64 = self.encode_image(image_path)
+
+            # Multiple object detection prompt
+            prompt = """Analyze this image and determine if there are multiple DISTINCT MAIN items present.
+
+IMPORTANT RULES:
+1. IGNORE background items (tables, mats, walls, shelves, etc.)
+2. IGNORE packaging materials (boxes, bubble wrap, bags) - focus on what's INSIDE
+3. We're looking for DIFFERENT types of MAIN items, not multiple of the same thing
+4. Only count items that appear to be the PRIMARY subject of the photo
+
+Examples:
+- Xbox controller in a box on a mat = SINGLE object (mat is background)
+- Box with 5 identical plates = SINGLE object (multiple of same item)
+- Laptop AND mouse both packaged together = MULTIPLE objects (different items)
+- 3 books of the same type = SINGLE object (multiple of same)
+- Shirt AND shoes in same package = MULTIPLE objects (different items)
+
+Return ONLY a JSON object:
+{
+  "multiple_objects": true or false,
+  "count": number of distinct main object types,
+  "brief_description": "brief description of main item(s)"
+}"""
+
+            # Prepare the API request headers
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+
+            # Watsonx API payload
+            payload = {
+                "model_id": "meta-llama/llama-3-2-90b-vision-instruct",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:image/jpeg;base64,{image_base64}"
+                                },
+                            },
+                        ],
+                    }
+                ],
+                "parameters": {
+                    "decoding_method": "greedy",
+                    "max_new_tokens": 100,
+                    "temperature": 0.0,
+                    "top_p": 0.9,
+                },
+                "project_id": self.project_id,
+            }
+
+            # Make the API call
+            api_url = f"{self.url}/ml/v1/text/chat?version=2023-05-29"
+
+            print(f"Checking for multiple objects...")
+
+            response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+
+            # If 401, refresh token and retry once
+            if response.status_code == 401:
+                print("Token expired, refreshing...")
+                access_token = self.get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {access_token}"
+                response = requests.post(
+                    api_url, headers=headers, json=payload, timeout=60
+                )
+
+            if response.status_code == 200:
+                result = response.json()
+
+                # For chat API, the response format is different
+                if "choices" in result:
+                    generated_text = result["choices"][0]["message"]["content"]
+                else:
+                    generated_text = result.get("results", [{}])[0].get(
+                        "generated_text", ""
+                    )
+
+                print(f"Multiple object check response: {generated_text[:200]}...")
+
+                # Try to parse JSON from the response
+                try:
+                    # Try to find JSON in the response - look for first { to last }
+                    json_str = generated_text.strip()
+
+                    # If it starts with text before JSON, extract just the JSON part
+                    if not json_str.startswith("{"):
+                        start_idx = json_str.find("{")
+                        if start_idx != -1:
+                            json_str = json_str[start_idx:]
+
+                    # If it has text after JSON, extract just the JSON part
+                    if not json_str.endswith("}"):
+                        end_idx = json_str.rfind("}") + 1
+                        if end_idx > 0:
+                            json_str = json_str[:end_idx]
+
+                    if json_str.startswith("{") and json_str.endswith("}"):
+                        parsed_result = json.loads(json_str)
+
+                        return {
+                            "success": True,
+                            "data": parsed_result,
+                            "raw_response": generated_text,
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "Could not find valid JSON in response",
+                            "raw_response": generated_text,
+                        }
+
+                except json.JSONDecodeError as e:
+                    return {
+                        "success": False,
+                        "error": f"JSON parsing error: {str(e)}",
+                        "raw_response": generated_text,
+                    }
+            else:
+                error_msg = f"API call failed: {response.status_code}"
+                print(error_msg)
+                return {"success": False, "error": error_msg}
+
+        except Exception as e:
+            error_msg = f"Error checking multiple objects: {str(e)}"
+            print(error_msg)
+            return {"success": False, "error": error_msg}
+
     def generate_product_description(self, image_path: str) -> Dict[str, Any]:
         """Generate product description from image using Watsonx API"""
 
@@ -54,9 +197,15 @@ class SimpleWatsonxClient:
             image_base64 = self.encode_image(image_path)
 
             # Your specific prompt
-            prompt = """You are a detail-focused visual inspector.
+            prompt = """You are a detail-focused visual inspector with expertise in product identification.
 
-Goal: From ONE photo of a single item, produce a COMPLETE structured record. Favor **best-guess, high-coverage outputs**. Use visual cues (shape, components, texture), printed text, icons, packaging hints, and common-sense priors. If something is uncertain, still provide the **most probable** value and reflect that in the confidence score. Use "unknown" **only** when there is truly no reasonable inference.
+Goal: From ONE photo of a single item, produce a COMPLETE structured record with MAXIMUM detail extraction. Favor **best-guess, high-coverage outputs**. Use visual cues (shape, components, texture, design language), printed text, logos, icons, packaging hints, model-specific features, and common-sense priors. If something is uncertain, still provide the **most probable** value and reflect that in the confidence score. Use "unknown" **only** when there is truly no reasonable inference.
+
+**CRITICAL: IDENTIFY BRANDS AND MODELS**
+- Look for ANY visible branding, logos, or model identifiers
+- Use design language, button layouts, port configurations, and distinctive features to infer brands/models
+- Examples: Xbox controller → identify if Xbox 360/One/Series X/S based on button layout, D-pad design, home button style
+- Include brand and model in description and additional_info when identifiable
 
 For color and material analysis, identify both PRIMARY and SECONDARY characteristics when present. For example, if an item is mostly white with blue accents, the primary color is "white" and secondary could be "blue" with an estimated percentage. Only include secondary characteristics if they are genuinely visible and significant (typically 15%+ of the item).
 
@@ -76,6 +225,8 @@ Return **ONLY** a valid JSON object with this exact schema:
       "percentage": 0
     },
     "category": "apparel|electronics|housewares|toys|tools|books|beauty|sports|other|unknown",
+    "brand": "",
+    "model": "",
     "weight": { "value": null, "unit": "g|kg|lb|oz|null" },
     "print_label": true,
     "sort": "known_overgoods|vague_overgoods",
@@ -88,6 +239,8 @@ Return **ONLY** a valid JSON object with this exact schema:
     "material": 0.0,
     "material_secondary": 0.0,
     "category": 0.0,
+    "brand": 0.0,
+    "model": 0.0,
     "weight": 0.0,
     "print_label": 0.0,
     "sort": 0.0
@@ -107,11 +260,13 @@ Instructions & heuristics:
 - **Colour**: pick the dominant visible surface colour. If two are equally dominant, choose the one that visually covers more of the item; note the secondary in `additional_info`.
 - **Material**: infer from texture/finish (e.g., matte polymer, brushed metal, woven fabric); use "other" rather than "unknown" when a reasonable class exists.
 - **Category**: prefer the closest fit from the list; if borderline, choose the most probable and reflect uncertainty via confidence.
+- **Brand**: Extract from visible logos, text, or infer from distinctive design features. Be aggressive in identification.
+- **Model**: Identify specific model/version based on visual features, button layouts, ports, design generation. Include generation info (e.g., "Series X", "360", "One S").
 - **Weight**: ONLY if printed/legible on the image; otherwise leave value=null and unit=null but still include a brief rationale in `additional_info` if an apparent size/form suggests a typical range (do NOT invent numbers).
 - **print_label = true** if a barcode/QR/SKU/address block or shipping label is visibly present (even if partially unreadable).
 - **sort** = "known_overgoods" if there is any strong identifier (barcode/SKU/model/no. or clearly addressed label); otherwise "vague_overgoods".
-- **additional_info**: one short sentence with key visual cues or markings that informed your choices.
-- **description**: 1 concise sentence summarizing the item using ONLY information implied by the image (no brands unless clearly printed).
+- **additional_info**: Include ALL identifying details you can extract - model numbers, serial numbers visible, distinctive features, generations, variants, special editions, any text visible on the item or packaging. Be comprehensive.
+- **description**: 1 concise sentence that includes brand and model when known, summarizing the item using ONLY information implied by the image.
 
 Output JSON only—no extra prose outside the JSON."""
 
@@ -158,6 +313,16 @@ Output JSON only—no extra prose outside the JSON."""
 
             print(f"API Response Status: {response.status_code}")
 
+            # If 401, refresh token and retry once
+            if response.status_code == 401:
+                print("Token expired, refreshing...")
+                access_token = self.get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {access_token}"
+                response = requests.post(
+                    api_url, headers=headers, json=payload, timeout=60
+                )
+                print(f"Retry API Response Status: {response.status_code}")
+
             if response.status_code == 200:
                 result = response.json()
 
@@ -175,12 +340,22 @@ Output JSON only—no extra prose outside the JSON."""
 
                 # Try to parse JSON from the response
                 try:
-                    # Find JSON in the response
-                    start_idx = generated_text.find("{")
-                    end_idx = generated_text.rfind("}") + 1
+                    # Try to find JSON in the response - look for first { to last }
+                    json_str = generated_text.strip()
 
-                    if start_idx != -1 and end_idx != -1:
-                        json_str = generated_text[start_idx:end_idx]
+                    # If it starts with text before JSON, extract just the JSON part
+                    if not json_str.startswith("{"):
+                        start_idx = json_str.find("{")
+                        if start_idx != -1:
+                            json_str = json_str[start_idx:]
+
+                    # If it has text after JSON, extract just the JSON part
+                    if not json_str.endswith("}"):
+                        end_idx = json_str.rfind("}") + 1
+                        if end_idx > 0:
+                            json_str = json_str[:end_idx]
+
+                    if json_str.startswith("{") and json_str.endswith("}"):
                         parsed_result = json.loads(json_str)
 
                         return {
@@ -191,7 +366,7 @@ Output JSON only—no extra prose outside the JSON."""
                     else:
                         return {
                             "success": False,
-                            "error": "Could not find JSON in response",
+                            "error": "Could not find valid JSON in response",
                             "raw_response": generated_text,
                         }
 
@@ -276,6 +451,15 @@ Provide a comprehensive description in 2-3 sentences that captures all the key i
 
             response = requests.post(api_url, headers=headers, json=payload, timeout=60)
 
+            # If 401, refresh token and retry once
+            if response.status_code == 401:
+                print("Token expired, refreshing...")
+                access_token = self.get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {access_token}"
+                response = requests.post(
+                    api_url, headers=headers, json=payload, timeout=60
+                )
+
             if response.status_code == 200:
                 result = response.json()
 
@@ -359,6 +543,15 @@ Provide a concise search description (1-2 sentences) that captures the essential
             print(f"Processing natural language query: {query}")
 
             response = requests.post(api_url, headers=headers, json=payload, timeout=30)
+
+            # If 401, refresh token and retry once
+            if response.status_code == 401:
+                print("Token expired, refreshing...")
+                access_token = self.get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {access_token}"
+                response = requests.post(
+                    api_url, headers=headers, json=payload, timeout=30
+                )
 
             if response.status_code == 200:
                 result = response.json()

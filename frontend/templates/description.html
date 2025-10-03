@@ -480,10 +480,11 @@
 					<div id="loading" style="display: none">
 						<div class="loading">
 							<div class="loading-spinner"></div>
-							<p style="color: var(--text-secondary)">
+							<p id="loadingStatus" style="color: var(--text-secondary)">
 								AI is analyzing your image...
 							</p>
 							<p
+								id="loadingSubtext"
 								style="
 									color: var(--text-secondary);
 									font-size: 0.9rem;
@@ -594,10 +595,65 @@
 				document.getElementById("placeholder").style.display = "none";
 				document.getElementById("generateBtn").disabled = true;
 
+				// Step 1: Check for multiple objects
+				document.getElementById("loadingStatus").textContent =
+					"Checking for multiple objects in the image...";
+				document.getElementById("loadingSubtext").textContent = "Step 1 of 2";
+
+				let multipleObjectsMsg = "";
+
 				try {
+					// First API call - check for multiple objects
+					const multipleCheckResponse = await fetch(
+						"/api/check-multiple-objects",
+						{
+							method: "POST",
+							body: formData,
+						}
+					);
+
+					const multipleCheckResult = await multipleCheckResponse.json();
+
+					if (multipleCheckResult.success) {
+						const moData = multipleCheckResult.data;
+						if (moData.multiple_objects) {
+							multipleObjectsMsg = `⚠️ Multiple objects detected: ${moData.brief_description}. Analysis may take longer.`;
+						} else {
+							multipleObjectsMsg = `✓ Single object detected: ${moData.brief_description}`;
+						}
+
+						// Show the multiple objects result immediately
+						const resultContent = document.getElementById("resultContent");
+						resultContent.innerHTML = "";
+						document.getElementById("results").style.display = "block";
+
+						const msgDiv = document.createElement("div");
+						msgDiv.className = "multiple-objects-msg";
+						msgDiv.style.cssText = `
+							background: var(--bg-card);
+							border: 1px solid var(--border);
+							border-radius: 12px;
+							padding: 1rem;
+							margin-bottom: 1.5rem;
+							color: var(--text-primary);
+							animation: slideInRight 0.5s ease-out;
+						`;
+						msgDiv.textContent = multipleObjectsMsg;
+						resultContent.appendChild(msgDiv);
+					}
+
+					// Step 2: Generate full description
+					document.getElementById("loadingStatus").textContent =
+						"Analyzing item details...";
+					document.getElementById("loadingSubtext").textContent = "Step 2 of 2";
+
+					// Create new FormData for second request
+					const formData2 = new FormData();
+					formData2.append("file", selectedFile);
+
 					const response = await fetch("/api/generate-description", {
 						method: "POST",
-						body: formData,
+						body: formData2,
 					});
 
 					const result = await response.json();
@@ -606,7 +662,7 @@
 					document.getElementById("generateBtn").disabled = false;
 
 					if (result.success) {
-						displayResults(result.data);
+						displayResults(result.data, multipleObjectsMsg);
 					} else {
 						displayError(result.error, result.raw_response);
 					}
@@ -634,12 +690,37 @@
 				});
 			}
 
-			async function displayResults(data) {
+			async function displayResults(data, multipleObjectsMsg = "") {
 				const resultContent = document.getElementById("resultContent");
+
+				// Check if there's already a multiple objects message, preserve it
+				const existingMsg = resultContent.querySelector(
+					".multiple-objects-msg"
+				);
+
 				resultContent.innerHTML = "";
 
 				// Show results container
 				document.getElementById("results").style.display = "block";
+
+				// Re-add the existing message or add a new one
+				if (existingMsg) {
+					resultContent.appendChild(existingMsg);
+				} else if (multipleObjectsMsg) {
+					const msgDiv = document.createElement("div");
+					msgDiv.className = "multiple-objects-msg";
+					msgDiv.style.cssText = `
+						background: var(--bg-card);
+						border: 1px solid var(--border);
+						border-radius: 12px;
+						padding: 1rem;
+						margin-bottom: 1.5rem;
+						color: var(--text-primary);
+						animation: slideInRight 0.5s ease-out;
+					`;
+					msgDiv.textContent = multipleObjectsMsg;
+					resultContent.appendChild(msgDiv);
+				}
 
 				const items = [];
 
@@ -676,6 +757,16 @@
 							label: "Description",
 							value: data.description || "N/A",
 							confidence: null,
+						},
+						{
+							label: "Brand",
+							value: fields.brand || "Not identified",
+							confidence: confidence.brand,
+						},
+						{
+							label: "Model",
+							value: fields.model || "Not identified",
+							confidence: confidence.model,
 						},
 						{
 							label: "Condition",
