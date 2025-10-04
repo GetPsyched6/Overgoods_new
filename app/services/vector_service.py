@@ -320,18 +320,18 @@ class SimpleVectorDatabase:
             print(f"Error in form search: {e}")
             # Fallback to text search
             query_parts = []
-            if form_data.get("keywords"):
-                query_parts.append(form_data["keywords"])
-            if form_data.get("color"):
-                query_parts.append(f"color {form_data['color']}")
-            if form_data.get("material"):
-                query_parts.append(f"material {form_data['material']}")
-            if form_data.get("condition"):
-                query_parts.append(f"condition {form_data['condition']}")
-            if form_data.get("category"):
-                query_parts.append(f"category {form_data['category']}")
-            query = " ".join(query_parts) if query_parts else "general item"
-            return self.search_by_text(query, n_results)
+        if form_data.get("keywords"):
+            query_parts.append(form_data["keywords"])
+        if form_data.get("color"):
+            query_parts.append(f"color {form_data['color']}")
+        if form_data.get("material"):
+            query_parts.append(f"material {form_data['material']}")
+        if form_data.get("condition"):
+            query_parts.append(f"condition {form_data['condition']}")
+        if form_data.get("category"):
+            query_parts.append(f"category {form_data['category']}")
+        query = " ".join(query_parts) if query_parts else "general item"
+        return self.search_by_text(query, n_results)
 
     def search_by_image_embedding(
         self, query_embedding: np.ndarray, n_results: int = 5

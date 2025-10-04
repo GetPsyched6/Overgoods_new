@@ -44,6 +44,103 @@ class SimpleWatsonxClient:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
+    def _parse_multiple_objects_fallback(self, text: str) -> Optional[Dict[str, Any]]:
+        """Parse markdown/text formatted multiple objects response as fallback"""
+        try:
+            text_lower = text.lower()
+
+            # Initialize defaults
+            multiple_objects = False
+            count = 1
+            brief_description = "Item"
+
+            # Try to extract count
+            # Look for patterns like "1", "single", "one object", "count: 1"
+            count_patterns = [
+                r"count[:\s*]+(\d+)",
+                r"(\d+)\s+(?:distinct|main|object|item)",
+                r"number[^:]*:[^\d]*(\d+)",
+            ]
+
+            for pattern in count_patterns:
+                match = re.search(pattern, text_lower)
+                if match:
+                    count = int(match.group(1))
+                    break
+
+            # Determine if multiple objects
+            if count > 1:
+                multiple_objects = True
+            elif any(
+                word in text_lower
+                for word in [
+                    "single",
+                    "one object",
+                    "1 object",
+                    "only 1",
+                    "count: 1",
+                    "count:** 1",
+                ]
+            ):
+                multiple_objects = False
+                count = 1
+            elif any(
+                word in text_lower for word in ["multiple", "several", "more than one"]
+            ):
+                multiple_objects = True
+                if count == 1:  # If we didn't find count yet
+                    count = 2
+
+            # Try to extract brief description
+            desc_patterns = [
+                r"brief[_ ]description[:\s*\*]+([^\n\*]+)",
+                r"description[:\s*\*]+([^\n\*]+)",
+                r"main item[s]?[:\s*\*]+([^\n\*]+)",
+                r"item[:\s*\*]+([^\n\*]+)",
+            ]
+
+            for pattern in desc_patterns:
+                match = re.search(pattern, text_lower, re.IGNORECASE)
+                if match:
+                    brief_description = match.group(1).strip().rstrip("*").strip()
+                    # Capitalize first letter
+                    brief_description = (
+                        brief_description[0].upper() + brief_description[1:]
+                        if brief_description
+                        else "Item"
+                    )
+                    break
+
+            # If still no description, look for recognizable product terms
+            if brief_description == "Item":
+                product_terms = [
+                    "xbox",
+                    "controller",
+                    "laptop",
+                    "mouse",
+                    "keyboard",
+                    "cable",
+                    "plate",
+                    "game",
+                    "console",
+                    "monitor",
+                    "phone",
+                    "tablet",
+                ]
+                for term in product_terms:
+                    if term in text_lower:
+                        brief_description = term.capitalize()
+                        break
+
+            return {
+                "multiple_objects": multiple_objects,
+                "count": count,
+                "brief_description": brief_description,
+            }
+        except Exception as e:
+            print(f"Fallback parsing error: {e}")
+            return None
+
     def check_multiple_objects(self, image_path: str) -> Dict[str, Any]:
         """Check if image contains multiple distinct objects"""
 
@@ -55,7 +152,9 @@ class SimpleWatsonxClient:
             image_base64 = self.encode_image(image_path)
 
             # Multiple object detection prompt
-            prompt = """Analyze this image and determine if there are multiple DISTINCT MAIN items present.
+            prompt = """CRITICAL: Your response must be PURE JSON. Start with { and end with }. No markdown, no labels, no text before or after.
+
+Analyze this image and determine if there are multiple DISTINCT MAIN items present.
 
 IMPORTANT RULES:
 1. IGNORE background items (tables, mats, walls, shelves, etc.)
@@ -70,12 +169,21 @@ Examples:
 - 3 books of the same type = SINGLE object (multiple of same)
 - Shirt AND shoes in same package = MULTIPLE objects (different items)
 
-Return ONLY a JSON object:
+CRITICAL OUTPUT REQUIREMENTS:
+- Your response must START with { and END with }
+- Do NOT add markdown (no ```, no ```json)
+- Do NOT add labels (no "Answer:", no "JSON Output:", no "Here is")
+- Do NOT add explanatory text before or after the JSON
+- Just output the raw JSON object immediately
+
+Schema:
 {
   "multiple_objects": true or false,
   "count": number of distinct main object types,
   "brief_description": "brief description of main item(s)"
-}"""
+}
+
+Begin your response with { now:"""
 
             # Prepare the API request headers
             headers = {
@@ -186,6 +294,18 @@ Return ONLY a JSON object:
                             "raw_response": generated_text,
                         }
                     else:
+                        # FALLBACK: Parse markdown/text format
+                        print("No JSON found, attempting text parsing...")
+                        fallback_result = self._parse_multiple_objects_fallback(
+                            generated_text
+                        )
+                        if fallback_result:
+                            print("Fallback parsing successful!")
+                            return {
+                                "success": True,
+                                "data": fallback_result,
+                                "raw_response": generated_text,
+                            }
                         return {
                             "success": False,
                             "error": "Could not find valid JSON in response",
@@ -193,6 +313,18 @@ Return ONLY a JSON object:
                         }
 
                 except json.JSONDecodeError as e:
+                    # FALLBACK: Parse markdown/text format
+                    print(f"JSON parsing failed: {e}. Attempting text parsing...")
+                    fallback_result = self._parse_multiple_objects_fallback(
+                        generated_text
+                    )
+                    if fallback_result:
+                        print("Fallback parsing successful!")
+                        return {
+                            "success": True,
+                            "data": fallback_result,
+                            "raw_response": generated_text,
+                        }
                     return {
                         "success": False,
                         "error": f"JSON parsing error: {str(e)}",
@@ -224,7 +356,9 @@ Return ONLY a JSON object:
             if multiple_objects_data and multiple_objects_data.get("multiple_objects"):
                 object_count = multiple_objects_data.get("count", 2)
                 # Your specific prompt for MULTIPLE objects
-                prompt = f"""You are a detail-focused visual inspector with expertise in product identification.
+                prompt = f"""CRITICAL FORMAT RULE: Your response must be PURE JSON starting with {{ and ending with }}. No markdown code blocks, no "Answer:", no "JSON Output:", no text before or after the JSON. Output ONLY the JSON object.
+
+You are a detail-focused visual inspector with expertise in product identification.
 
 **CRITICAL: MULTIPLE OBJECTS DETECTED - ANALYZE EACH SEPARATELY**
 This image contains {object_count} distinct objects. You must analyze EACH object individually and return data as ARRAYS.
@@ -236,7 +370,7 @@ For each field, provide an array with {object_count} entries, one for each objec
 - Each object gets its own brand, model, color, material, etc.
 - Examples: Game Boy + Game Cartridge → ["Nintendo", "Nintendo"], ["Game Boy Advance SP", "Super Mario Advance"]
 
-Return **ONLY** a valid JSON object with this schema:
+Schema (arrays must have EXACTLY {object_count} entries):
 
 {{
   "fields": {{
@@ -280,12 +414,21 @@ Instructions:
 - **global.ocr_text**: Extract ALL readable text from the entire image including product names, model numbers, any text on objects or packaging
 - **global.visible_marks**: Note any logos, serial numbers, QR codes, barcodes visible anywhere in the image
 
-Output JSON only—no extra prose outside the JSON."""
+CRITICAL OUTPUT REQUIREMENTS:
+- Your response MUST START with {{ and END with }}
+- Do NOT add markdown formatting (no ```, no ```json, no **bold**)
+- Do NOT add text labels (no "Answer:", no "JSON Output:", no "Here is the JSON:")
+- Do NOT add explanatory text before or after the JSON
+- Output ONLY the raw JSON object - nothing else
+
+Begin your response with {{ now:"""
             else:
                 # Single object prompt (original)
-                prompt = """You are a detail-focused visual inspector with expertise in product identification.
+                prompt = """CRITICAL FORMAT RULE: Your response must be PURE JSON starting with { and ending with }. No markdown code blocks, no "Answer:", no "JSON Output:", no text before or after the JSON. Output ONLY the JSON object.
 
-Goal: From ONE photo of a single item, produce a COMPLETE structured record with MAXIMUM detail extraction. Favor **best-guess, high-coverage outputs**. Use visual cues (shape, components, texture, design language), printed text, logos, icons, packaging hints, model-specific features, and common-sense priors. If something is uncertain, still provide the **most probable** value and reflect that in the confidence score. Use "unknown" **only** when there is truly no reasonable inference.
+You are a detail-focused visual inspector with expertise in product identification.
+
+Goal: From ONE photo of a single item, produce a COMPLETE structured record with MAXIMUM detail extraction. Favor best-guess, high-coverage outputs. Use visual cues (shape, components, texture, design language), printed text, logos, icons, packaging hints, model-specific features, and common-sense priors. If something is uncertain, still provide the most probable value and reflect that in the confidence score. Use "unknown" only when there is truly no reasonable inference.
 
 **CRITICAL: IDENTIFY BRANDS AND MODELS**
 - Look for ANY visible branding, logos, or model identifiers
@@ -295,7 +438,7 @@ Goal: From ONE photo of a single item, produce a COMPLETE structured record with
 
 For color and material analysis, identify both PRIMARY and SECONDARY characteristics when present. For example, if an item is mostly white with blue accents, the primary color is "white" and secondary could be "blue" with an estimated percentage. Only include secondary characteristics if they are genuinely visible and significant (typically 15%+ of the item).
 
-Return **ONLY** a valid JSON object with this exact schema:
+Schema:
 
 {
   "fields": {
@@ -342,22 +485,29 @@ Return **ONLY** a valid JSON object with this exact schema:
   "description": ""
 }
 
-Instructions & heuristics:
+Instructions:
 - **Maximize filled fields.** Choose the most likely option; adjust the corresponding confidence in [0,1].
 - **Condition** describes the item itself (not just the cardboard). Packaging wear can imply open_box.
-- **Colour**: pick the dominant visible surface colour. If two are equally dominant, choose the one that visually covers more of the item; note the secondary in `additional_info`.
+- **Colour**: pick the dominant visible surface colour. If two are equally dominant, choose the one that visually covers more of the item; note the secondary in additional_info.
 - **Material**: infer from texture/finish (e.g., matte polymer, brushed metal, woven fabric); use "other" rather than "unknown" when a reasonable class exists.
 - **Category**: prefer the closest fit from the list; if borderline, choose the most probable and reflect uncertainty via confidence.
 - **Brand**: Extract from visible logos, text, or infer from distinctive design features. Be aggressive in identification.
 - **Model**: Identify specific model/version based on visual features, button layouts, ports, design generation. Include generation info (e.g., "Series X", "360", "One S").
 - **Quantity**: COUNT how many of this item are visible in the image. If you see 5 plates, quantity=5. If 1 controller, quantity=1. Be precise and count carefully!
-- **Weight**: ONLY if printed/legible on the image; otherwise leave value=null and unit=null but still include a brief rationale in `additional_info` if an apparent size/form suggests a typical range (do NOT invent numbers).
+- **Weight**: ONLY if printed/legible on the image; otherwise leave value=null and unit=null but still include a brief rationale in additional_info if an apparent size/form suggests a typical range (do NOT invent numbers).
 - **print_label = true** if a barcode/QR/SKU/address block or shipping label is visibly present (even if partially unreadable).
 - **sort** = "known_overgoods" if there is any strong identifier (barcode/SKU/model/no. or clearly addressed label); otherwise "vague_overgoods".
 - **additional_info**: Include ALL identifying details you can extract - model numbers, serial numbers visible, distinctive features, generations, variants, special editions, any text visible on the item or packaging. Be comprehensive.
 - **description**: 1 concise sentence that includes brand and model when known, summarizing the item using ONLY information implied by the image.
 
-Output JSON only—no extra prose outside the JSON."""
+CRITICAL OUTPUT REQUIREMENTS:
+- Your response MUST START with { and END with }
+- Do NOT add markdown formatting (no ```, no ```json, no asterisks)
+- Do NOT add text labels (no "Answer:", no "JSON Output:", no "Response:", no "Here is")
+- Do NOT add explanatory text before or after the JSON
+- Output ONLY the raw JSON object - nothing else
+
+Begin your response with { now:"""
 
             # Prepare the API request headers
             headers = {
@@ -386,8 +536,8 @@ Output JSON only—no extra prose outside the JSON."""
                 "parameters": {
                     "decoding_method": "greedy",
                     "max_new_tokens": 2000,
-                    "temperature": 0.1,
-                    "top_p": 0.9,
+                    "temperature": 0.0,  # Most deterministic
+                    "top_p": 1.0,  # Not used with greedy, but set to default
                 },
                 "project_id": self.project_id,
             }
