@@ -51,6 +51,18 @@ async def root():
         return f.read()
 
 
+@router.post("/api/reload-database")
+async def reload_database():
+    """Reload database from disk without restarting server"""
+    try:
+        result = vector_db.reload_from_disk()
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
 @router.post("/api/sync-assets")
 async def sync_assets():
     """Scan assets folder and add any new images to database"""

@@ -15,6 +15,19 @@ class SimpleVectorDatabase:
         os.makedirs(config.CHROMA_DB_PATH, exist_ok=True)
         self.items = self._load_items()
 
+    def reload_from_disk(self):
+        """Reload items from disk (useful for hot-reloading without server restart)"""
+        old_count = len(self.items)
+        self.items = self._load_items()
+        new_count = len(self.items)
+        print(f"🔄 Reloaded database: {old_count} → {new_count} items")
+        return {
+            "success": True,
+            "old_count": old_count,
+            "new_count": new_count,
+            "message": f"Reloaded {new_count} items from disk",
+        }
+
     def _load_items(self) -> List[Dict[str, Any]]:
         """Load items from JSON file"""
         if os.path.exists(self.db_file):
