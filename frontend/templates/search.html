@@ -1,1043 +1,1690 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>AI Smart Search</title>
-    <style>
-        :root {
-            --bg-primary: #0f0f23;
-            --bg-secondary: #1a1a2e;
-            --bg-card: rgba(255, 255, 255, 0.05);
-            --text-primary: #ffffff;
-            --text-secondary: #a0a0a0;
-            --accent-primary: #6366f1;
-            --accent-secondary: #8b5cf6;
-            --accent-tertiary: #06b6d4;
-            --border: rgba(255, 255, 255, 0.1);
-            --shadow: rgba(0, 0, 0, 0.3);
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-        }
-
-        [data-theme="light"] {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8fafc;
-            --bg-card: rgba(0, 0, 0, 0.02);
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --accent-primary: #6366f1;
-            --accent-secondary: #8b5cf6;
-            --accent-tertiary: #06b6d4;
-            --border: rgba(0, 0, 0, 0.1);
-            --shadow: rgba(0, 0, 0, 0.1);
-            --success: #10b981;
-            --warning: #f59e0b;
-            --error: #ef4444;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-primary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            transition: all 0.3s ease;
-        }
-
-        .theme-toggle {
-            position: fixed;
-            top: 2rem;
-            right: 2rem;
-            z-index: 1000;
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 50px;
-            padding: 0.5rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            backdrop-filter: blur(10px);
-        }
-
-        .theme-toggle:hover {
-            transform: scale(1.1);
-            box-shadow: 0 8px 32px var(--shadow);
-        }
-
-        .theme-toggle svg {
-            width: 24px;
-            height: 24px;
-            fill: var(--text-primary);
-            transition: all 0.3s ease;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-            min-height: 100vh;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
-            animation: slideDown 0.8s ease-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .header h1 {
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .header p {
-            color: var(--text-secondary);
-            font-size: 1.2rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .back-btn {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 2rem;
-            backdrop-filter: blur(10px);
-        }
-
-        .back-btn:hover {
-            background: var(--accent-primary);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
-        }
-
-        .search-sections {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-
-        .search-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 2rem;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 16px 32px var(--shadow);
-            animation: slideUp 0.8s ease-out;
-        }
-
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .search-section h3 {
-            color: var(--text-primary);
-            margin-bottom: 1.5rem;
-            font-size: 1.3rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-            margin: 1.5rem 0;
-        }
-
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-
-        label {
-            color: var(--text-secondary);
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            font-size: 0.9rem;
-        }
-
-        input, select {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.75rem 1rem;
-            color: var(--text-primary);
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-        }
-
-        .upload-area {
-            border: 2px dashed var(--border);
-            border-radius: 16px;
-            padding: 3rem 2rem;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: var(--bg-card);
-            margin: 1.5rem 0;
-        }
-
-        .upload-area:hover {
-            border-color: var(--accent-primary);
-            background: rgba(99, 102, 241, 0.05);
-            transform: translateY(-2px);
-        }
-
-        .image-preview-container {
-            position: relative;
-            display: none;
-            max-width: 400px;
-            margin: 1rem auto;
-        }
-
-        .image-preview-container.active {
-            display: block;
-        }
-
-        .image-preview {
-            width: 100%;
-            max-height: 300px;
-            object-fit: contain;
-            border-radius: 12px;
-            border: 2px solid var(--border);
-            background: var(--bg-card);
-        }
-
-        .clear-image-btn {
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--error);
-            color: white;
-            border: 2px solid var(--bg);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: bold;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .clear-image-btn:hover {
-            background: #dc2626;
-            transform: scale(1.1);
-        }
-
-        .upload-area.has-image {
-            padding: 1.5rem;
-            cursor: default;
-        }
-
-        .upload-area.has-image:hover {
-            transform: none;
-        }
-
-        .btn {
-            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
-        }
-
-        .btn:disabled {
-            background: var(--text-secondary);
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .btn-secondary {
-            background: var(--bg-card);
-            color: var(--text-primary);
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 16px var(--shadow);
-        }
-
-        .btn-secondary:hover {
-            background: var(--accent-primary);
-            color: white;
-            border-color: var(--accent-primary);
-        }
-
-        .btn-warning {
-            background: linear-gradient(135deg, var(--warning), #fb923c);
-        }
-
-        .loading {
-            text-align: center;
-            padding: 3rem 2rem;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .loading-spinner {
-            width: 48px;
-            height: 48px;
-            margin: 0 auto 1rem;
-            border: 4px solid var(--border);
-            border-top: 4px solid var(--accent-primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .results-container {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 2rem;
-            backdrop-filter: blur(20px);
-            box-shadow: 0 16px 32px var(--shadow);
-        }
-
-        .result-item {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-            transition: all 0.3s ease;
-            animation: slideInRight 0.5s ease-out;
-        }
-
-        @keyframes slideInRight {
-            from {
-                opacity: 0;
-                transform: translateX(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .result-item:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 16px 48px var(--shadow);
-        }
-
-        .result-header {
-            font-weight: 700;
-            color: var(--accent-primary);
-            margin-bottom: 1rem;
-            font-size: 1.2rem;
-        }
-
-        .result-meta {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-        }
-
-        .error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid var(--error);
-            color: var(--error);
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin: 1rem 0;
-        }
-
-        .no-results {
-            text-align: center;
-            color: var(--text-secondary);
-            padding: 3rem 2rem;
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 1rem;
-            }
-            .header h1 {
-                font-size: 2rem;
-            }
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="theme-toggle" onclick="toggleTheme()">
-        <svg class="sun-icon" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="5"/>
-            <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-        </svg>
-    </div>
-
-    <div class="container">
-        <div class="header">
-            <h1>AI Smart Search</h1>
-            <p>Find similar items using advanced AI-powered search algorithms and natural language processing</p>
-        </div>
-
-        <a href="/" class="back-btn">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-            </svg>
-            Back to Home
-        </a>
-
-        <div class="search-sections">
-            <div class="search-section">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L13.5 2.5L16.17 5.17L10.5 10.84L11.84 12.18L17.5 6.5L20.17 9.17L21 9ZM1 15H3L3.94 18.06L2.5 19.5L4.5 21.5L5.94 20.06L9 21H11V19L7.91 18.09L7 15H5.5L4.5 12H1V15Z"/>
-                    </svg>
-                    Natural Language Search
-                </h3>
-                <div class="form-row">
-                    <div class="form-group" style="grid-column: 1 / -1;">
-                        <label for="naturalQuery">Ask in plain English:</label>
-                        <input type="text" id="naturalQuery" placeholder="e.g., 'Find me a Pioneer CD player' or 'Show me gaming controllers'">
-                    </div>
-                </div>
-                <button class="btn" onclick="searchByNaturalLanguage()">Search with AI</button>
-            </div>
-
-            <div class="search-section">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"/>
-                    </svg>
-                    Form-Based Search
-                </h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="keywords">Keywords:</label>
-                        <input type="text" id="keywords" placeholder="Enter keywords...">
-                    </div>
-                    <div class="form-group">
-                        <label for="color">Color:</label>
-                        <select id="color">
-                            <option value="">Any Color</option>
-                            <option value="Red">Red</option>
-                            <option value="Blue">Blue</option>
-                            <option value="Green">Green</option>
-                            <option value="Black">Black</option>
-                            <option value="White">White</option>
-                            <option value="Brown">Brown</option>
-                            <option value="Gray">Gray</option>
-                            <option value="Yellow">Yellow</option>
-                            <option value="Orange">Orange</option>
-                            <option value="Purple">Purple</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="material">Material:</label>
-                        <select id="material">
-                            <option value="">Any Material</option>
-                            <option value="Leather">Leather</option>
-                            <option value="Plastic">Plastic</option>
-                            <option value="Metal">Metal</option>
-                            <option value="Fabric">Fabric</option>
-                            <option value="Denim">Denim</option>
-                            <option value="Cotton">Cotton</option>
-                            <option value="Wood">Wood</option>
-                            <option value="Glass">Glass</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="condition">Condition:</label>
-                        <select id="condition">
-                            <option value="">Any Condition</option>
-                            <option value="New">New</option>
-                            <option value="Good">Good</option>
-                            <option value="Used">Used</option>
-                            <option value="Damaged">Damaged</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="category">Category:</label>
-                        <select id="category">
-                            <option value="">Any Category</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="Clothing">Clothing</option>
-                            <option value="Accessories">Accessories</option>
-                            <option value="Home">Home</option>
-                            <option value="Sports">Sports</option>
-                            <option value="Books">Books</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="nResults">Max Results:</label>
-                        <select id="nResults">
-                            <option value="5">5</option>
-                            <option value="10">10</option>
-                            <option value="20">20</option>
-                        </select>
-                    </div>
-                </div>
-                <button class="btn btn-secondary" onclick="searchByForm()">Search by Form</button>
-            </div>
-
-            <div class="search-section">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                    </svg>
-                    Image Search
-                </h3>
-                <div id="uploadArea" class="upload-area" onclick="triggerFileInput()">
-                    <div id="uploadPrompt">
-                        <div style="width: 64px; height: 64px; margin: 0 auto 1rem; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-                            <svg viewBox="0 0 24 24" style="width: 32px; height: 32px; fill: white;">
-                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                            </svg>
-                        </div>
-                        <p style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--text-primary);">
-                            <span id="uploadText">Drop your image here or click to browse</span>
-                        </p>
-                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                            Supports JPG, PNG, GIF, WebP • Max 10MB
-                        </p>
-                    </div>
-                    <div id="previewContainer" class="image-preview-container">
-                        <img id="imagePreview" class="image-preview" alt="Preview">
-                        <button class="clear-image-btn" onclick="clearImageSelection(event)" title="Remove image">×</button>
-                    </div>
-                    <input type="file" id="searchFileInput" accept="image/*" style="display: none;" onchange="handleSearchFileSelect(event)">
-                </div>
-                <button id="imageSearchBtn" class="btn" onclick="searchByImage()" disabled>Search by Image</button>
-            </div>
-
-            <div class="search-section" style="border: 2px solid var(--warning); background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(239, 68, 68, 0.1));">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
-                    </svg>
-                    Database Reload
-                </h3>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                    <strong>Hot reload</strong> the database from disk without restarting the server. Use this after fixing metadata via terminal commands!
-                </p>
-                <button class="btn" onclick="reloadDatabase()" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); width: 100%; font-size: 1.1rem; padding: 1rem;">
-                    🔄 Reload Database from Disk
-                </button>
-            </div>
-
-            <div class="search-section">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
-                    </svg>
-                    AI Text Descriptions
-                </h3>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                    Generate detailed text descriptions for items using Watsonx AI.
-                </p>
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <button class="btn btn-warning" onclick="reprocessDescriptions(false)">
-                        Process New Items
-                    </button>
-                    <button class="btn" onclick="reprocessDescriptions(true)" style="background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);">
-                        Force Regenerate All
-                    </button>
-                </div>
-            </div>
-
-            <div class="search-section">
-                <h3>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z"/>
-                    </svg>
-                    CLIP Image Embeddings
-                </h3>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                    Manage visual embeddings for fast and accurate image search. Run "Sync" if you added new images.
-                </p>
-                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                    <button class="btn" onclick="syncAssets()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
-                        🔄 Sync New Images
-                    </button>
-                    <button class="btn btn-warning" onclick="generateEmbeddings(false)">
-                        Generate Embeddings
-                    </button>
-                    <button class="btn" onclick="generateEmbeddings(true)" style="background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);">
-                        Force Regenerate All
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <div id="loading" style="display: none;">
-            <div class="loading">
-                <div class="loading-spinner"></div>
-                <p style="color: var(--text-secondary);">Searching for similar items...</p>
-            </div>
-        </div>
-
-        <div id="results" class="results-container" style="display: none;">
-            <h3 style="margin-bottom: 1.5rem; color: var(--text-primary);">Search Results</h3>
-            <div id="resultsList"></div>
-        </div>
-    </div>
-
-    <script>
-        let searchFile = null;
-        
-        // Theme toggle functionality
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-        }
-
-        // Load saved theme
-        const savedTheme = localStorage.getItem('theme') || 'dark';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        
-        function triggerFileInput() {
-            const previewContainer = document.getElementById('previewContainer');
-            if (!previewContainer.classList.contains('active')) {
-                document.getElementById('searchFileInput').click();
-            }
-        }
-
-        function handleSearchFileSelect(event) {
-            searchFile = event.target.files[0];
-            if (searchFile) {
-                // Validate file type
-                if (!searchFile.type.startsWith('image/')) {
-                    alert('Please select an image file');
-                    return;
-                }
-                
-                // Validate file size (10MB)
-                if (searchFile.size > 10 * 1024 * 1024) {
-                    alert('Image size must be less than 10MB');
-                    return;
-                }
-                
-                // Show preview
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const preview = document.getElementById('imagePreview');
-                    const previewContainer = document.getElementById('previewContainer');
-                    const uploadPrompt = document.getElementById('uploadPrompt');
-                    const uploadArea = document.getElementById('uploadArea');
-                    
-                    preview.src = e.target.result;
-                    previewContainer.classList.add('active');
-                    uploadPrompt.style.display = 'none';
-                    uploadArea.classList.add('has-image');
-                    
-                    document.getElementById('imageSearchBtn').disabled = false;
-                };
-                reader.readAsDataURL(searchFile);
-            }
-        }
-
-        function clearImageSelection(event) {
-            event.stopPropagation();
-            
-            // Reset file input
-            document.getElementById('searchFileInput').value = '';
-            searchFile = null;
-            
-            // Hide preview
-            const preview = document.getElementById('imagePreview');
-            const previewContainer = document.getElementById('previewContainer');
-            const uploadPrompt = document.getElementById('uploadPrompt');
-            const uploadArea = document.getElementById('uploadArea');
-            
-            preview.src = '';
-            previewContainer.classList.remove('active');
-            uploadPrompt.style.display = 'block';
-            uploadArea.classList.remove('has-image');
-            
-            document.getElementById('imageSearchBtn').disabled = true;
-        }
-        
-        async function searchByNaturalLanguage() {
-            console.log('searchByNaturalLanguage called');
-            const naturalQuery = document.getElementById('naturalQuery').value.trim();
-            console.log('Natural query:', naturalQuery);
-            
-            if (!naturalQuery) {
-                alert('Please enter a search query');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('natural_query', naturalQuery);
-            formData.append('n_results', document.getElementById('nResults').value);
-            
-            await performSearch(formData);
-        }
-        
-        async function searchByForm() {
-            console.log('searchByForm called');
-            const formData = new FormData();
-            
-            const keywords = document.getElementById('keywords').value;
-            const color = document.getElementById('color').value;
-            const material = document.getElementById('material').value;
-            const condition = document.getElementById('condition').value;
-            const category = document.getElementById('category').value;
-            const nResults = document.getElementById('nResults').value;
-            
-            console.log('Form values:', {keywords, color, material, condition, category, nResults});
-            
-            if (keywords) formData.append('keywords', keywords);
-            if (color) formData.append('color', color);
-            if (material) formData.append('material', material);
-            if (condition) formData.append('condition', condition);
-            if (category) formData.append('category', category);
-            formData.append('n_results', nResults);
-            
-            await performSearch(formData);
-        }
-        
-        async function searchByImage() {
-            console.log('searchByImage called');
-            if (!searchFile) {
-                console.log('No search file selected');
-                return;
-            }
-            console.log('Search file:', searchFile.name);
-            
-            const formData = new FormData();
-            formData.append('file', searchFile);
-            formData.append('n_results', document.getElementById('nResults').value);
-            
-            await performSearch(formData);
-        }
-        
-        async function performSearch(formData) {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('results').style.display = 'none';
-            
-            try {
-                const response = await fetch('/api/search', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                document.getElementById('loading').style.display = 'none';
-                
-                if (result.success) {
-                    displaySearchResults(result.results);
-                } else {
-                    displayError(result.error);
-                }
-            } catch (error) {
-                document.getElementById('loading').style.display = 'none';
-                displayError('Network error: ' + error.message);
-            }
-        }
-        
-        function displaySearchResults(results) {
-            const resultsList = document.getElementById('resultsList');
-            
-            if (results.length === 0) {
-                resultsList.innerHTML = '<div class="no-results">No matching items found.</div>';
-            } else {
-                resultsList.innerHTML = results.map((item, index) => {
-                    // Construct image URL properly
-                    const imagePath = item.metadata.image_path || '';
-                    let imageUrl = '';
-                    
-                    if (imagePath) {
-                        // Extract just the filename from the path
-                        const filename = imagePath.split('/').pop();
-                        imageUrl = `/assets/${filename}`;
-                    }
-                    
-                    return `
-                    <div class="result-item" style="animation-delay: ${index * 0.1}s;">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta
+			http-equiv="Cache-Control"
+			content="no-cache, no-store, must-revalidate"
+		/>
+		<meta http-equiv="Pragma" content="no-cache" />
+		<meta http-equiv="Expires" content="0" />
+		<title>AI Smart Search</title>
+		<style>
+			:root {
+				--bg-primary: #0f0f23;
+				--bg-secondary: #1a1a2e;
+				--bg-card: rgba(255, 255, 255, 0.05);
+				--text-primary: #ffffff;
+				--text-secondary: #a0a0a0;
+				--accent-primary: #6366f1;
+				--accent-secondary: #8b5cf6;
+				--accent-tertiary: #06b6d4;
+				--border: rgba(255, 255, 255, 0.1);
+				--shadow: rgba(0, 0, 0, 0.3);
+				--success: #10b981;
+				--warning: #f59e0b;
+				--error: #ef4444;
+			}
+
+			[data-theme="light"] {
+				--bg-primary: #ffffff;
+				--bg-secondary: #f8fafc;
+				--bg-card: rgba(0, 0, 0, 0.02);
+				--text-primary: #1e293b;
+				--text-secondary: #64748b;
+				--accent-primary: #6366f1;
+				--accent-secondary: #8b5cf6;
+				--accent-tertiary: #06b6d4;
+				--border: rgba(0, 0, 0, 0.1);
+				--shadow: rgba(0, 0, 0, 0.1);
+				--success: #10b981;
+				--warning: #f59e0b;
+				--error: #ef4444;
+			}
+
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+					sans-serif;
+				background: var(--bg-primary);
+				color: var(--text-primary);
+				min-height: 100vh;
+				transition: all 0.3s ease;
+			}
+
+			.theme-toggle {
+				position: fixed;
+				top: 2rem;
+				right: 2rem;
+				z-index: 1000;
+				background: var(--bg-card);
+				border: 1px solid var(--border);
+				border-radius: 50px;
+				padding: 0.5rem;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				backdrop-filter: blur(10px);
+			}
+
+			.theme-toggle:hover {
+				transform: scale(1.1);
+				box-shadow: 0 8px 32px var(--shadow);
+			}
+
+			.theme-toggle svg {
+				width: 24px;
+				height: 24px;
+				fill: var(--text-primary);
+				transition: all 0.3s ease;
+			}
+
+			.container {
+				max-width: 1400px;
+				margin: 0 auto;
+				padding: 2rem;
+				min-height: 100vh;
+			}
+
+			.header {
+				text-align: center;
+				margin-bottom: 3rem;
+				animation: slideDown 0.8s ease-out;
+			}
+
+			@keyframes slideDown {
+				from {
+					opacity: 0;
+					transform: translateY(-30px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+
+			.header h1 {
+				font-size: 3rem;
+				font-weight: 700;
+				margin-bottom: 1rem;
+				background: linear-gradient(
+					135deg,
+					var(--accent-primary),
+					var(--accent-secondary)
+				);
+				-webkit-background-clip: text;
+				-webkit-text-fill-color: transparent;
+				background-clip: text;
+			}
+
+			.header p {
+				color: var(--text-secondary);
+				font-size: 1.2rem;
+				max-width: 600px;
+				margin: 0 auto;
+			}
+
+			.back-btn {
+				background: var(--bg-card);
+				color: var(--text-primary);
+				border: 1px solid var(--border);
+				padding: 0.75rem 1.5rem;
+				border-radius: 12px;
+				text-decoration: none;
+				font-weight: 500;
+				transition: all 0.3s ease;
+				display: inline-flex;
+				align-items: center;
+				gap: 0.5rem;
+				margin-bottom: 2rem;
+				backdrop-filter: blur(10px);
+			}
+
+			.back-btn:hover {
+				background: var(--accent-primary);
+				color: white;
+				transform: translateY(-2px);
+				box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+			}
+
+			.search-sections {
+				display: grid;
+				grid-template-columns: 1fr;
+				gap: 2rem;
+				margin-bottom: 3rem;
+			}
+
+			.search-section {
+				background: var(--bg-card);
+				border: 1px solid var(--border);
+				border-radius: 20px;
+				padding: 2rem;
+				backdrop-filter: blur(20px);
+				box-shadow: 0 16px 32px var(--shadow);
+				animation: slideUp 0.8s ease-out;
+			}
+
+			@keyframes slideUp {
+				from {
+					opacity: 0;
+					transform: translateY(30px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+
+			.search-section h3 {
+				color: var(--text-primary);
+				margin-bottom: 1.5rem;
+				font-size: 1.3rem;
+				display: flex;
+				align-items: center;
+				gap: 0.5rem;
+			}
+
+			.form-row {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+				gap: 1.5rem;
+				margin: 1.5rem 0;
+			}
+
+			.form-group {
+				display: flex;
+				flex-direction: column;
+			}
+
+			label {
+				color: var(--text-secondary);
+				font-weight: 500;
+				margin-bottom: 0.5rem;
+				font-size: 0.9rem;
+			}
+
+			input,
+			select {
+				background: var(--bg-card);
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				padding: 0.75rem 1rem;
+				color: var(--text-primary);
+				font-size: 1rem;
+				transition: all 0.3s ease;
+			}
+
+			input:focus,
+			select:focus {
+				outline: none;
+				border-color: var(--accent-primary);
+				box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+			}
+
+			.upload-area {
+				border: 2px dashed var(--border);
+				border-radius: 16px;
+				padding: 3rem 2rem;
+				text-align: center;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				background: var(--bg-card);
+				margin: 1.5rem 0;
+			}
+
+			.upload-area:hover {
+				border-color: var(--accent-primary);
+				background: rgba(99, 102, 241, 0.05);
+				transform: translateY(-2px);
+			}
+
+			.image-preview-container {
+				position: relative;
+				display: none;
+				max-width: 400px;
+				margin: 1rem auto;
+			}
+
+			.image-preview-container.active {
+				display: block;
+			}
+
+			.image-preview {
+				width: 100%;
+				max-height: 300px;
+				object-fit: contain;
+				border-radius: 12px;
+				border: 2px solid var(--border);
+				background: var(--bg-card);
+			}
+
+			.clear-image-btn {
+				position: absolute;
+				top: -10px;
+				right: -10px;
+				width: 32px;
+				height: 32px;
+				border-radius: 50%;
+				background: var(--error);
+				color: white;
+				border: 2px solid var(--bg);
+				cursor: pointer;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 1.2rem;
+				font-weight: bold;
+				transition: all 0.2s ease;
+				box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+			}
+
+			.clear-image-btn:hover {
+				background: #dc2626;
+				transform: scale(1.1);
+			}
+
+			.upload-area.has-image {
+				padding: 1.5rem;
+				cursor: default;
+			}
+
+			.upload-area.has-image:hover {
+				transform: none;
+			}
+
+			.btn {
+				background: linear-gradient(
+					135deg,
+					var(--accent-primary),
+					var(--accent-secondary)
+				);
+				color: white;
+				border: none;
+				padding: 0.75rem 1.5rem;
+				border-radius: 12px;
+				font-weight: 600;
+				font-size: 0.9rem;
+				cursor: pointer;
+				transition: all 0.3s ease;
+				box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+				position: relative;
+				overflow: hidden;
+			}
+
+			.btn:hover {
+				transform: translateY(-2px);
+				box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
+			}
+
+			.btn:disabled {
+				background: var(--text-secondary);
+				cursor: not-allowed;
+				transform: none;
+				box-shadow: none;
+			}
+
+			.btn-secondary {
+				background: var(--bg-card);
+				color: var(--text-primary);
+				border: 1px solid var(--border);
+				box-shadow: 0 4px 16px var(--shadow);
+			}
+
+			.btn-secondary:hover {
+				background: var(--accent-primary);
+				color: white;
+				border-color: var(--accent-primary);
+			}
+
+			.btn-warning {
+				background: linear-gradient(135deg, var(--warning), #fb923c);
+			}
+
+			.loading {
+				text-align: center;
+				padding: 3rem 2rem;
+				animation: pulse 2s ease-in-out infinite;
+			}
+
+			@keyframes pulse {
+				0%,
+				100% {
+					opacity: 1;
+				}
+				50% {
+					opacity: 0.6;
+				}
+			}
+
+			.loading-spinner {
+				width: 48px;
+				height: 48px;
+				margin: 0 auto 1rem;
+				border: 4px solid var(--border);
+				border-top: 4px solid var(--accent-primary);
+				border-radius: 50%;
+				animation: spin 1s linear infinite;
+			}
+
+			@keyframes spin {
+				0% {
+					transform: rotate(0deg);
+				}
+				100% {
+					transform: rotate(360deg);
+				}
+			}
+
+			.results-container {
+				background: var(--bg-card);
+				border: 1px solid var(--border);
+				border-radius: 20px;
+				padding: 2rem;
+				backdrop-filter: blur(20px);
+				box-shadow: 0 16px 32px var(--shadow);
+			}
+
+			.result-item {
+				background: var(--bg-card);
+				border: 1px solid var(--border);
+				border-radius: 16px;
+				padding: 1.5rem;
+				margin: 1rem 0;
+				transition: all 0.3s ease;
+				animation: slideInRight 0.5s ease-out;
+			}
+
+			@keyframes slideInRight {
+				from {
+					opacity: 0;
+					transform: translateX(20px);
+				}
+				to {
+					opacity: 1;
+					transform: translateX(0);
+				}
+			}
+
+			.result-item:hover {
+				transform: translateY(-4px);
+				box-shadow: 0 16px 48px var(--shadow);
+			}
+
+			.result-header {
+				font-weight: 700;
+				color: var(--accent-primary);
+				margin-bottom: 1rem;
+				font-size: 1.2rem;
+			}
+
+			.result-meta {
+				color: var(--text-secondary);
+				font-size: 0.9rem;
+				margin-top: 0.5rem;
+			}
+
+			.quiz-container {
+				background: var(--bg-card);
+				border: 2px solid var(--accent-primary);
+				border-radius: 20px;
+				padding: 2rem;
+				backdrop-filter: blur(20px);
+				box-shadow: 0 16px 32px rgba(99, 102, 241, 0.2);
+				animation: slideInUp 0.4s ease-out;
+				margin-top: 2rem;
+			}
+
+			@keyframes slideInUp {
+				from {
+					opacity: 0;
+					transform: translateY(20px);
+				}
+				to {
+					opacity: 1;
+					transform: translateY(0);
+				}
+			}
+
+			.quiz-question {
+				background: var(--bg-secondary);
+				border: 1px solid var(--border);
+				border-radius: 12px;
+				padding: 1.5rem;
+				margin-bottom: 1.5rem;
+			}
+
+			.quiz-question h4 {
+				color: var(--accent-primary);
+				margin-bottom: 1rem;
+				font-size: 1.1rem;
+			}
+
+			.quiz-options {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.75rem;
+			}
+
+			.quiz-option {
+				background: var(--bg-card);
+				border: 2px solid var(--border);
+				border-radius: 8px;
+				padding: 0.75rem 1.25rem;
+				cursor: pointer;
+				transition: all 0.2s ease;
+				font-weight: 500;
+			}
+
+			.quiz-option:hover {
+				border-color: var(--accent-primary);
+				transform: scale(1.05);
+			}
+
+			.quiz-option.selected {
+				background: var(--accent-primary);
+				border-color: var(--accent-primary);
+				color: white;
+			}
+
+			.match-badge {
+				display: inline-block;
+				background: var(--success);
+				color: white;
+				padding: 0.25rem 0.75rem;
+				border-radius: 6px;
+				font-size: 0.9rem;
+				font-weight: 600;
+				margin-left: 0.5rem;
+			}
+
+			.error {
+				background: rgba(239, 68, 68, 0.1);
+				border: 1px solid var(--error);
+				color: var(--error);
+				padding: 1.5rem;
+				border-radius: 12px;
+				margin: 1rem 0;
+			}
+
+			.no-results {
+				text-align: center;
+				color: var(--text-secondary);
+				padding: 3rem 2rem;
+			}
+
+			@media (max-width: 768px) {
+				.container {
+					padding: 1rem;
+				}
+				.header h1 {
+					font-size: 2rem;
+				}
+				.form-row {
+					grid-template-columns: 1fr;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="theme-toggle" onclick="toggleTheme()">
+			<svg class="sun-icon" viewBox="0 0 24 24">
+				<circle cx="12" cy="12" r="5" />
+				<path
+					d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+				/>
+			</svg>
+		</div>
+
+		<div class="container">
+			<div class="header">
+				<h1>AI Smart Search</h1>
+				<p>
+					Find similar items using advanced AI-powered search algorithms and
+					natural language processing
+				</p>
+			</div>
+
+			<a href="/" class="back-btn">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+					<path
+						d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
+					/>
+				</svg>
+				Back to Home
+			</a>
+
+			<div class="search-sections">
+				<div class="search-section">
+					<h3>
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L13.5 2.5L16.17 5.17L10.5 10.84L11.84 12.18L17.5 6.5L20.17 9.17L21 9ZM1 15H3L3.94 18.06L2.5 19.5L4.5 21.5L5.94 20.06L9 21H11V19L7.91 18.09L7 15H5.5L4.5 12H1V15Z"
+							/>
+						</svg>
+						Natural Language Search
+					</h3>
+					<div class="form-row">
+						<div class="form-group" style="grid-column: 1 / -1">
+							<label for="naturalQuery">Ask in plain English:</label>
+							<input
+								type="text"
+								id="naturalQuery"
+								placeholder="e.g., 'Find me a Pioneer CD player' or 'Show me gaming controllers'"
+							/>
+						</div>
+					</div>
+					<button class="btn" onclick="searchByNaturalLanguage()">
+						Search with AI
+					</button>
+				</div>
+
+				<div class="search-section">
+					<h3>
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"
+							/>
+						</svg>
+						Form-Based Search
+					</h3>
+					<div class="form-row">
+						<div class="form-group">
+							<label for="keywords">Keywords:</label>
+							<input
+								type="text"
+								id="keywords"
+								placeholder="Enter keywords..."
+							/>
+						</div>
+						<div class="form-group">
+							<label for="color">Color:</label>
+							<select id="color">
+								<option value="">Any Color</option>
+								<option value="Red">Red</option>
+								<option value="Blue">Blue</option>
+								<option value="Green">Green</option>
+								<option value="Black">Black</option>
+								<option value="White">White</option>
+								<option value="Brown">Brown</option>
+								<option value="Gray">Gray</option>
+								<option value="Yellow">Yellow</option>
+								<option value="Orange">Orange</option>
+								<option value="Purple">Purple</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label for="material">Material:</label>
+							<select id="material">
+								<option value="">Any Material</option>
+								<option value="Leather">Leather</option>
+								<option value="Plastic">Plastic</option>
+								<option value="Metal">Metal</option>
+								<option value="Fabric">Fabric</option>
+								<option value="Denim">Denim</option>
+								<option value="Cotton">Cotton</option>
+								<option value="Wood">Wood</option>
+								<option value="Glass">Glass</option>
+							</select>
+						</div>
+					</div>
+					<div class="form-row">
+						<div class="form-group">
+							<label for="condition">Condition:</label>
+							<select id="condition">
+								<option value="">Any Condition</option>
+								<option value="New">New</option>
+								<option value="Good">Good</option>
+								<option value="Used">Used</option>
+								<option value="Damaged">Damaged</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label for="category">Category:</label>
+							<select id="category">
+								<option value="">Any Category</option>
+								<option value="Electronics">Electronics</option>
+								<option value="Clothing">Clothing</option>
+								<option value="Accessories">Accessories</option>
+								<option value="Home">Home</option>
+								<option value="Sports">Sports</option>
+								<option value="Books">Books</option>
+							</select>
+						</div>
+						<div class="form-group">
+							<label for="nResults">Max Results:</label>
+							<select id="nResults">
+								<option value="5">5</option>
+								<option value="10">10</option>
+								<option value="20">20</option>
+							</select>
+						</div>
+					</div>
+					<button class="btn btn-secondary" onclick="searchByForm()">
+						Search by Form
+					</button>
+				</div>
+
+				<div class="search-section">
+					<h3>
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
+							/>
+						</svg>
+						Image Search
+					</h3>
+					<div id="uploadArea" class="upload-area" onclick="triggerFileInput()">
+						<div id="uploadPrompt">
+							<div
+								style="
+									width: 64px;
+									height: 64px;
+									margin: 0 auto 1rem;
+									background: linear-gradient(
+										135deg,
+										var(--accent-primary),
+										var(--accent-secondary)
+									);
+									border-radius: 16px;
+									display: flex;
+									align-items: center;
+									justify-content: center;
+								"
+							>
+								<svg
+									viewBox="0 0 24 24"
+									style="width: 32px; height: 32px; fill: white"
+								>
+									<path
+										d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
+									/>
+								</svg>
+							</div>
+							<p
+								style="
+									font-size: 1.1rem;
+									margin-bottom: 0.5rem;
+									color: var(--text-primary);
+								"
+							>
+								<span id="uploadText"
+									>Drop your image here or click to browse</span
+								>
+							</p>
+							<p style="color: var(--text-secondary); font-size: 0.9rem">
+								Supports JPG, PNG, GIF, WebP • Max 10MB
+							</p>
+						</div>
+						<div id="previewContainer" class="image-preview-container">
+							<img id="imagePreview" class="image-preview" alt="Preview" />
+							<button
+								class="clear-image-btn"
+								onclick="clearImageSelection(event)"
+								title="Remove image"
+							>
+								×
+							</button>
+						</div>
+						<input
+							type="file"
+							id="searchFileInput"
+							accept="image/*"
+							style="display: none"
+							onchange="handleSearchFileSelect(event)"
+						/>
+					</div>
+					<button
+						id="imageSearchBtn"
+						class="btn"
+						onclick="searchByImage()"
+						disabled
+					>
+						Search by Image
+					</button>
+				</div>
+
+				<div
+					class="search-section"
+					style="
+						border: 2px solid var(--warning);
+						background: linear-gradient(
+							135deg,
+							rgba(245, 158, 11, 0.1),
+							rgba(239, 68, 68, 0.1)
+						);
+					"
+				>
+					<h3>
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
+							/>
+						</svg>
+						Database Reload
+					</h3>
+					<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+						<strong>Hot reload</strong> the database from disk without
+						restarting the server. Use this after fixing metadata via terminal
+						commands!
+					</p>
+					<button
+						class="btn"
+						onclick="reloadDatabase()"
+						style="
+							background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+							width: 100%;
+							font-size: 1.1rem;
+							padding: 1rem;
+						"
+					>
+						🔄 Reload Database from Disk
+					</button>
+				</div>
+
+				<div class="search-section">
+					<h3>
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
+							/>
+						</svg>
+						AI Text Descriptions
+					</h3>
+					<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+						Generate detailed text descriptions for items using Watsonx AI.
+					</p>
+					<div style="display: flex; gap: 1rem; flex-wrap: wrap">
+						<button
+							class="btn btn-warning"
+							onclick="reprocessDescriptions(false)"
+						>
+							Process New Items
+						</button>
+						<button
+							class="btn"
+							onclick="reprocessDescriptions(true)"
+							style="
+								background: linear-gradient(
+									135deg,
+									var(--accent) 0%,
+									var(--primary) 100%
+								);
+							"
+						>
+							Force Regenerate All
+						</button>
+					</div>
+				</div>
+
+				<div class="search-section">
+					<h3>
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+							<path
+								d="M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z"
+							/>
+						</svg>
+						CLIP Image Embeddings
+					</h3>
+					<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+						Manage visual embeddings for fast and accurate image search. Run
+						"Sync" if you added new images.
+					</p>
+					<div style="display: flex; gap: 1rem; flex-wrap: wrap">
+						<button
+							class="btn"
+							onclick="syncAssets()"
+							style="
+								background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+							"
+						>
+							🔄 Sync New Images
+						</button>
+						<button class="btn btn-warning" onclick="generateEmbeddings(false)">
+							Generate Embeddings
+						</button>
+						<button
+							class="btn"
+							onclick="generateEmbeddings(true)"
+							style="
+								background: linear-gradient(
+									135deg,
+									var(--accent) 0%,
+									var(--primary) 100%
+								);
+							"
+						>
+							Force Regenerate All
+						</button>
+					</div>
+				</div>
+			</div>
+
+			<div id="loading" style="display: none">
+				<div class="loading">
+					<div class="loading-spinner"></div>
+					<p style="color: var(--text-secondary)">
+						Searching for similar items...
+					</p>
+				</div>
+			</div>
+
+			<div id="results" class="results-container" style="display: none">
+				<h3 style="margin-bottom: 1.5rem; color: var(--text-primary)">
+					Search Results
+				</h3>
+				<div id="resultsList"></div>
+
+				<!-- Refinement Quiz Button -->
+				<div
+					id="refineButtonContainer"
+					style="display: none; margin-top: 2rem; text-align: center"
+				>
+					<button
+						onclick="startRefinementQuiz()"
+						style="
+							background: linear-gradient(
+								135deg,
+								var(--accent-secondary),
+								var(--accent-primary)
+							);
+							color: white;
+							border: none;
+							padding: 1rem 2rem;
+							border-radius: 12px;
+							font-size: 1rem;
+							font-weight: 600;
+							cursor: pointer;
+							transition: all 0.3s ease;
+							box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+						"
+					>
+						🎯 Help Me Find It (Smart Quiz)
+					</button>
+					<p
+						style="
+							margin-top: 0.75rem;
+							color: var(--text-secondary);
+							font-size: 0.9rem;
+						"
+					>
+						Not sure which one? Answer 3-5 quick questions to narrow it down!
+					</p>
+				</div>
+			</div>
+
+			<!-- Refinement Quiz Section -->
+			<div id="quizSection" class="quiz-container" style="display: none">
+				<h3 style="margin-bottom: 1.5rem; color: var(--text-primary)">
+					🎯 Smart Item Finder
+				</h3>
+				<p style="color: var(--text-secondary); margin-bottom: 2rem">
+					Answer the questions you know to help narrow down results.
+					<strong>Skip any you're unsure about!</strong>
+				</p>
+
+				<div id="quizQuestions"></div>
+
+				<div style="display: flex; gap: 1rem; margin-top: 2rem">
+					<button
+						onclick="submitQuizAnswers()"
+						style="
+							flex: 1;
+							background: var(--success);
+							color: white;
+							border: none;
+							padding: 1rem;
+							border-radius: 12px;
+							font-size: 1rem;
+							font-weight: 600;
+							cursor: pointer;
+							transition: all 0.3s ease;
+						"
+					>
+						✓ Find My Item
+					</button>
+					<button
+						onclick="cancelQuiz()"
+						style="
+							flex: 1;
+							background: var(--bg-card);
+							color: var(--text-primary);
+							border: 1px solid var(--border);
+							padding: 1rem;
+							border-radius: 12px;
+							font-size: 1rem;
+							font-weight: 600;
+							cursor: pointer;
+							transition: all 0.3s ease;
+						"
+					>
+						Cancel
+					</button>
+				</div>
+			</div>
+
+			<!-- Refined Results Section -->
+			<div id="refinedResults" class="results-container" style="display: none">
+				<h3 style="margin-bottom: 1.5rem; color: var(--text-primary)">
+					✨ Refined Results (Ranked by Match)
+				</h3>
+				<div id="refinedResultsList"></div>
+			</div>
+		</div>
+
+		<script>
+			let searchFile = null;
+
+			// Theme toggle functionality
+			function toggleTheme() {
+				const html = document.documentElement;
+				const currentTheme = html.getAttribute("data-theme");
+				const newTheme = currentTheme === "light" ? "dark" : "light";
+				html.setAttribute("data-theme", newTheme);
+				localStorage.setItem("theme", newTheme);
+			}
+
+			// Load saved theme
+			const savedTheme = localStorage.getItem("theme") || "dark";
+			document.documentElement.setAttribute("data-theme", savedTheme);
+
+			function triggerFileInput() {
+				const previewContainer = document.getElementById("previewContainer");
+				if (!previewContainer.classList.contains("active")) {
+					document.getElementById("searchFileInput").click();
+				}
+			}
+
+			function handleSearchFileSelect(event) {
+				searchFile = event.target.files[0];
+				if (searchFile) {
+					// Validate file type
+					if (!searchFile.type.startsWith("image/")) {
+						alert("Please select an image file");
+						return;
+					}
+
+					// Validate file size (10MB)
+					if (searchFile.size > 10 * 1024 * 1024) {
+						alert("Image size must be less than 10MB");
+						return;
+					}
+
+					// Show preview
+					const reader = new FileReader();
+					reader.onload = function (e) {
+						const preview = document.getElementById("imagePreview");
+						const previewContainer =
+							document.getElementById("previewContainer");
+						const uploadPrompt = document.getElementById("uploadPrompt");
+						const uploadArea = document.getElementById("uploadArea");
+
+						preview.src = e.target.result;
+						previewContainer.classList.add("active");
+						uploadPrompt.style.display = "none";
+						uploadArea.classList.add("has-image");
+
+						document.getElementById("imageSearchBtn").disabled = false;
+					};
+					reader.readAsDataURL(searchFile);
+				}
+			}
+
+			function clearImageSelection(event) {
+				event.stopPropagation();
+
+				// Reset file input
+				document.getElementById("searchFileInput").value = "";
+				searchFile = null;
+
+				// Hide preview
+				const preview = document.getElementById("imagePreview");
+				const previewContainer = document.getElementById("previewContainer");
+				const uploadPrompt = document.getElementById("uploadPrompt");
+				const uploadArea = document.getElementById("uploadArea");
+
+				preview.src = "";
+				previewContainer.classList.remove("active");
+				uploadPrompt.style.display = "block";
+				uploadArea.classList.remove("has-image");
+
+				document.getElementById("imageSearchBtn").disabled = true;
+			}
+
+			async function searchByNaturalLanguage() {
+				console.log("searchByNaturalLanguage called");
+				const naturalQuery = document
+					.getElementById("naturalQuery")
+					.value.trim();
+				console.log("Natural query:", naturalQuery);
+
+				if (!naturalQuery) {
+					alert("Please enter a search query");
+					return;
+				}
+
+				const formData = new FormData();
+				formData.append("natural_query", naturalQuery);
+				formData.append("n_results", document.getElementById("nResults").value);
+
+				await performSearch(formData);
+			}
+
+			async function searchByForm() {
+				console.log("searchByForm called");
+				const formData = new FormData();
+
+				const keywords = document.getElementById("keywords").value;
+				const color = document.getElementById("color").value;
+				const material = document.getElementById("material").value;
+				const condition = document.getElementById("condition").value;
+				const category = document.getElementById("category").value;
+				const nResults = document.getElementById("nResults").value;
+
+				console.log("Form values:", {
+					keywords,
+					color,
+					material,
+					condition,
+					category,
+					nResults,
+				});
+
+				if (keywords) formData.append("keywords", keywords);
+				if (color) formData.append("color", color);
+				if (material) formData.append("material", material);
+				if (condition) formData.append("condition", condition);
+				if (category) formData.append("category", category);
+				formData.append("n_results", nResults);
+
+				await performSearch(formData);
+			}
+
+			async function searchByImage() {
+				console.log("searchByImage called");
+				if (!searchFile) {
+					console.log("No search file selected");
+					return;
+				}
+				console.log("Search file:", searchFile.name);
+
+				const formData = new FormData();
+				formData.append("file", searchFile);
+				formData.append("n_results", document.getElementById("nResults").value);
+
+				await performSearch(formData);
+			}
+
+			async function performSearch(formData) {
+				document.getElementById("loading").style.display = "block";
+				document.getElementById("results").style.display = "none";
+
+				try {
+					const response = await fetch("/api/search", {
+						method: "POST",
+						body: formData,
+					});
+
+					const result = await response.json();
+
+					document.getElementById("loading").style.display = "none";
+
+					if (result.success) {
+						displaySearchResults(result.results);
+					} else {
+						displayError(result.error);
+					}
+				} catch (error) {
+					document.getElementById("loading").style.display = "none";
+					displayError("Network error: " + error.message);
+				}
+			}
+
+			function displaySearchResults(results) {
+				const resultsList = document.getElementById("resultsList");
+
+				if (results.length === 0) {
+					resultsList.innerHTML =
+						'<div class="no-results">No matching items found.</div>';
+				} else {
+					resultsList.innerHTML = results
+						.map((item, index) => {
+							// Construct image URL properly
+							const imagePath = item.metadata.image_path || "";
+							let imageUrl = "";
+
+							if (imagePath) {
+								// Extract just the filename from the path
+								const filename = imagePath.split("/").pop();
+								imageUrl = `/assets/${filename}`;
+							}
+
+							return `
+                    <div class="result-item" style="animation-delay: ${
+											index * 0.1
+										}s;">
                         <div style="display: flex; gap: 1.5rem; align-items: flex-start;">
                             <div style="flex-shrink: 0;">
-                                ${imageUrl ? `
-                                    <img src="${imageUrl}" alt="${item.metadata.title || item.id}" 
+                                ${
+																	imageUrl
+																		? `
+                                    <img src="${imageUrl}" alt="${
+																				item.metadata.title || item.id
+																		  }" 
                                          style="width: 150px; height: 150px; object-fit: cover; border-radius: 12px; border: 2px solid var(--border);"
                                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                                     <div style="display: none; width: 150px; height: 150px; background: var(--bg-card); border-radius: 12px; border: 2px solid var(--border); align-items: center; justify-content: center; color: var(--text-secondary); font-size: 12px;">
                                         Image not available
                                     </div>
-                                ` : `
+                                `
+																		: `
                                     <div style="width: 150px; height: 150px; background: var(--bg-card); border-radius: 12px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 12px;">
                                         No image
                                     </div>
-                                `}
+                                `
+																}
                             </div>
                             <div style="flex: 1;">
-                                <div class="result-header">Result ${index + 1}: ${item.metadata.title || item.id}</div>
-                                <p style="margin-bottom: 1rem; line-height: 1.5;"><strong>Description:</strong> ${item.description}</p>
+                                <div class="result-header">Result ${
+																	index + 1
+																}: ${item.metadata.title || item.id}</div>
+                                <p style="margin-bottom: 1rem; line-height: 1.5;"><strong>Description:</strong> ${
+																	item.description
+																}</p>
                                 <div class="result-meta">
-                                    <strong>Color:</strong> ${item.metadata.color || 'N/A'} | 
-                                    <strong>Material:</strong> ${item.metadata.material || 'N/A'} | 
-                                    <strong>Condition:</strong> ${item.metadata.condition || 'N/A'} | 
-                                    <strong>Category:</strong> ${item.metadata.category || 'N/A'}
-                                    ${item.distance ? ` | <strong>Similarity:</strong> ${(1 - item.distance).toFixed(3)}` : ''}
+                                    <strong>Color:</strong> ${
+																			item.metadata.color || "N/A"
+																		} | 
+                                    <strong>Material:</strong> ${
+																			item.metadata.material || "N/A"
+																		} | 
+                                    <strong>Condition:</strong> ${
+																			item.metadata.condition || "N/A"
+																		} | 
+                                    <strong>Category:</strong> ${
+																			item.metadata.category || "N/A"
+																		}
+                                    ${
+																			item.distance
+																				? ` | <strong>Similarity:</strong> ${(
+																						1 - item.distance
+																				  ).toFixed(3)}`
+																				: ""
+																		}
                                 </div>
                             </div>
                         </div>
                     </div>
                 `;
-                }).join('');
-            }
-            
-            document.getElementById('results').style.display = 'block';
-            
-            // Auto-scroll to results section
-            setTimeout(() => {
-                document.getElementById('results').scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'start' 
-                });
-            }, 100);
-        }
-        
-        function displayError(error) {
-            const resultsList = document.getElementById('resultsList');
-            resultsList.innerHTML = `<div class="error"><strong>Error:</strong> ${error}</div>`;
-            document.getElementById('results').style.display = 'block';
-        }
+						})
+						.join("");
+				}
 
-        async function reloadDatabase() {
-            const button = event.target;
-            const originalText = button.textContent;
-            
-            button.disabled = true;
-            button.textContent = '🔄 Reloading...';
-            const originalBg = button.style.background;
-            button.style.background = 'var(--text-secondary)';
-            
-            try {
-                const response = await fetch('/api/reload-database', {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    alert(`✅ Database reloaded successfully!\n\n📊 Items: ${result.old_count} → ${result.new_count}\n\n💾 All changes from disk are now live!\n\n🔄 Refresh the page (Cmd+R) to see updated data.`);
-                    // Auto-refresh the page to show new data
-                    setTimeout(() => window.location.reload(), 1000);
-                } else {
-                    alert(`❌ Error: ${result.error}`);
-                }
-            } catch (error) {
-                alert(`❌ Network error: ${error.message}`);
-            } finally {
-                button.disabled = false;
-                button.textContent = originalText;
-                button.style.background = originalBg;
-            }
-        }
+				document.getElementById("results").style.display = "block";
 
-        async function syncAssets() {
-            const button = event.target;
-            const originalText = button.textContent;
-            
-            button.disabled = true;
-            button.textContent = '🔄 Syncing...';
-            const originalBg = button.style.background;
-            button.style.background = 'var(--text-secondary)';
-            
-            try {
-                const response = await fetch('/api/sync-assets', {
-                    method: 'POST'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    if (result.added > 0) {
-                        alert(`✅ Synced successfully!\n\n📁 Found ${result.added} new image(s)\n📊 Total items: ${result.total}\n\n💡 Remember to click "Generate Embeddings" to enable CLIP search for new images!`);
-                    } else {
-                        alert(`✅ Everything is in sync!\n\n📊 Total items: ${result.total}\nNo new images found in the assets folder.`);
-                    }
-                } else {
-                    alert(`❌ Error: ${result.error}`);
-                }
-            } catch (error) {
-                alert(`❌ Network error: ${error.message}`);
-            } finally {
-                button.disabled = false;
-                button.textContent = originalText;
-                button.style.background = originalBg;
-            }
-        }
+				// Auto-scroll to results section
+				setTimeout(() => {
+					document.getElementById("results").scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				}, 100);
+			}
 
-        async function generateEmbeddings(forceRegenerate = false) {
-            const button = event.target;
-            const originalText = button.textContent;
-            
-            // Confirm if force regenerating
-            if (forceRegenerate) {
-                const confirmed = confirm('⚠️ This will regenerate CLIP embeddings for ALL items.\n\nThis will take a few minutes as it loads the CLIP model and processes all images.\n\nContinue?');
-                if (!confirmed) return;
-            }
-            
-            button.disabled = true;
-            button.textContent = '🎨 Processing...';
-            const originalBg = button.style.background;
-            button.style.background = 'var(--text-secondary)';
-            
-            try {
-                const formData = new FormData();
-                formData.append('force', forceRegenerate);
-                
-                const response = await fetch('/api/generate-embeddings', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    if (result.force_regenerated) {
-                        alert(`✅ Successfully regenerated CLIP embeddings for ${result.updated} items!\n\n📊 Total items: ${result.total}\n⚡ Image search is now up to date!`);
-                    } else if (result.updated === 0 && result.already_processed > 0) {
-                        alert(`✅ All ${result.total} items already have CLIP embeddings!\n\nNo items needed processing.\n\n💡 Tip: Use "Force Regenerate All" if you want to update embeddings.`);
-                    } else if (result.updated > 0) {
-                        alert(`✅ Successfully generated CLIP embeddings for ${result.updated} item(s)!\n\n📊 Total items: ${result.total}\n✓ Already had embeddings: ${result.already_processed}\n⚡ Image search is now ready!`);
-                    } else {
-                        alert(`No items found to process. Total items: ${result.total}`);
-                    }
-                } else {
-                    alert(`❌ Error: ${result.error}`);
-                }
-            } catch (error) {
-                alert(`❌ Network error: ${error.message}`);
-            } finally {
-                button.disabled = false;
-                button.textContent = originalText;
-                button.style.background = originalBg;
-            }
-        }
+			function displayError(error) {
+				const resultsList = document.getElementById("resultsList");
+				resultsList.innerHTML = `<div class="error"><strong>Error:</strong> ${error}</div>`;
+				document.getElementById("results").style.display = "block";
+			}
 
-        async function reprocessDescriptions(forceRegenerate = false) {
-            const button = event.target;
-            const originalText = button.textContent;
-            
-            // Confirm if force regenerating
-            if (forceRegenerate) {
-                const confirmed = confirm('⚠️ This will regenerate AI descriptions for ALL items, even those that already have descriptions.\n\nThis may take several minutes and will use API credits.\n\nContinue?');
-                if (!confirmed) return;
-            }
-            
-            button.disabled = true;
-            button.textContent = 'Processing...';
-            const originalBg = button.style.background;
-            button.style.background = 'var(--text-secondary)';
-            
-            try {
-                const formData = new FormData();
-                formData.append('force', forceRegenerate);
-                
-                const response = await fetch('/api/reprocess-descriptions', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    if (result.force_regenerated) {
-                        alert(`✅ Successfully regenerated ${result.updated} items with fresh AI descriptions!\n\nTotal items: ${result.total}`);
-                    } else if (result.updated === 0 && result.already_processed > 0) {
-                        alert(`✅ All ${result.total} items already have AI descriptions!\n\nNo items needed to be processed.\n\nTip: Use "Force Regenerate All" to update existing descriptions.`);
-                    } else if (result.updated > 0) {
-                        alert(`✅ Successfully updated ${result.updated} items with AI descriptions!\n\nTotal items: ${result.total}\nAlready processed: ${result.already_processed}`);
-                    } else {
-                        alert(`No items found to process. Total items: ${result.total}`);
-                    }
-                } else {
-                    alert(`❌ Error: ${result.error}`);
-                }
-            } catch (error) {
-                alert(`❌ Network error: ${error.message}`);
-            } finally {
-                button.disabled = false;
-                button.textContent = originalText;
-                button.style.background = originalBg;
-            }
-        }
-    </script>
-</body>
+			async function reloadDatabase() {
+				const button = event.target;
+				const originalText = button.textContent;
+
+				button.disabled = true;
+				button.textContent = "🔄 Reloading...";
+				const originalBg = button.style.background;
+				button.style.background = "var(--text-secondary)";
+
+				try {
+					const response = await fetch("/api/reload-database", {
+						method: "POST",
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						alert(
+							`✅ Database reloaded successfully!\n\n📊 Items: ${result.old_count} → ${result.new_count}\n\n💾 All changes from disk are now live!\n\n🔄 Refresh the page (Cmd+R) to see updated data.`
+						);
+						// Auto-refresh the page to show new data
+						setTimeout(() => window.location.reload(), 1000);
+					} else {
+						alert(`❌ Error: ${result.error}`);
+					}
+				} catch (error) {
+					alert(`❌ Network error: ${error.message}`);
+				} finally {
+					button.disabled = false;
+					button.textContent = originalText;
+					button.style.background = originalBg;
+				}
+			}
+
+			async function syncAssets() {
+				const button = event.target;
+				const originalText = button.textContent;
+
+				button.disabled = true;
+				button.textContent = "🔄 Syncing...";
+				const originalBg = button.style.background;
+				button.style.background = "var(--text-secondary)";
+
+				try {
+					const response = await fetch("/api/sync-assets", {
+						method: "POST",
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						if (result.added > 0) {
+							alert(
+								`✅ Synced successfully!\n\n📁 Found ${result.added} new image(s)\n📊 Total items: ${result.total}\n\n💡 Remember to click "Generate Embeddings" to enable CLIP search for new images!`
+							);
+						} else {
+							alert(
+								`✅ Everything is in sync!\n\n📊 Total items: ${result.total}\nNo new images found in the assets folder.`
+							);
+						}
+					} else {
+						alert(`❌ Error: ${result.error}`);
+					}
+				} catch (error) {
+					alert(`❌ Network error: ${error.message}`);
+				} finally {
+					button.disabled = false;
+					button.textContent = originalText;
+					button.style.background = originalBg;
+				}
+			}
+
+			async function generateEmbeddings(forceRegenerate = false) {
+				const button = event.target;
+				const originalText = button.textContent;
+
+				// Confirm if force regenerating
+				if (forceRegenerate) {
+					const confirmed = confirm(
+						"⚠️ This will regenerate CLIP embeddings for ALL items.\n\nThis will take a few minutes as it loads the CLIP model and processes all images.\n\nContinue?"
+					);
+					if (!confirmed) return;
+				}
+
+				button.disabled = true;
+				button.textContent = "🎨 Processing...";
+				const originalBg = button.style.background;
+				button.style.background = "var(--text-secondary)";
+
+				try {
+					const formData = new FormData();
+					formData.append("force", forceRegenerate);
+
+					const response = await fetch("/api/generate-embeddings", {
+						method: "POST",
+						body: formData,
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						if (result.force_regenerated) {
+							alert(
+								`✅ Successfully regenerated CLIP embeddings for ${result.updated} items!\n\n📊 Total items: ${result.total}\n⚡ Image search is now up to date!`
+							);
+						} else if (result.updated === 0 && result.already_processed > 0) {
+							alert(
+								`✅ All ${result.total} items already have CLIP embeddings!\n\nNo items needed processing.\n\n💡 Tip: Use "Force Regenerate All" if you want to update embeddings.`
+							);
+						} else if (result.updated > 0) {
+							alert(
+								`✅ Successfully generated CLIP embeddings for ${result.updated} item(s)!\n\n📊 Total items: ${result.total}\n✓ Already had embeddings: ${result.already_processed}\n⚡ Image search is now ready!`
+							);
+						} else {
+							alert(`No items found to process. Total items: ${result.total}`);
+						}
+					} else {
+						alert(`❌ Error: ${result.error}`);
+					}
+				} catch (error) {
+					alert(`❌ Network error: ${error.message}`);
+				} finally {
+					button.disabled = false;
+					button.textContent = originalText;
+					button.style.background = originalBg;
+				}
+			}
+
+			async function reprocessDescriptions(forceRegenerate = false) {
+				const button = event.target;
+				const originalText = button.textContent;
+
+				// Confirm if force regenerating
+				if (forceRegenerate) {
+					const confirmed = confirm(
+						"⚠️ This will regenerate AI descriptions for ALL items, even those that already have descriptions.\n\nThis may take several minutes and will use API credits.\n\nContinue?"
+					);
+					if (!confirmed) return;
+				}
+
+				button.disabled = true;
+				button.textContent = "Processing...";
+				const originalBg = button.style.background;
+				button.style.background = "var(--text-secondary)";
+
+				try {
+					const formData = new FormData();
+					formData.append("force", forceRegenerate);
+
+					const response = await fetch("/api/reprocess-descriptions", {
+						method: "POST",
+						body: formData,
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						if (result.force_regenerated) {
+							alert(
+								`✅ Successfully regenerated ${result.updated} items with fresh AI descriptions!\n\nTotal items: ${result.total}`
+							);
+						} else if (result.updated === 0 && result.already_processed > 0) {
+							alert(
+								`✅ All ${result.total} items already have AI descriptions!\n\nNo items needed to be processed.\n\nTip: Use "Force Regenerate All" to update existing descriptions.`
+							);
+						} else if (result.updated > 0) {
+							alert(
+								`✅ Successfully updated ${result.updated} items with AI descriptions!\n\nTotal items: ${result.total}\nAlready processed: ${result.already_processed}`
+							);
+						} else {
+							alert(`No items found to process. Total items: ${result.total}`);
+						}
+					} else {
+						alert(`❌ Error: ${result.error}`);
+					}
+				} catch (error) {
+					alert(`❌ Network error: ${error.message}`);
+				} finally {
+					button.disabled = false;
+					button.textContent = originalText;
+					button.style.background = originalBg;
+				}
+			}
+
+			// Quiz Mode Variables
+			let currentSearchResults = [];
+			let quizQuestions = [];
+			let quizAnswers = {};
+
+			// Modified displaySearchResults to show quiz button for multiple results
+			const originalDisplaySearchResults = displaySearchResults;
+			displaySearchResults = function (results) {
+				currentSearchResults = results;
+				originalDisplaySearchResults(results);
+
+				// Show quiz button if we have 2+ results
+				const refineButton = document.getElementById("refineButtonContainer");
+				if (results.length >= 2) {
+					refineButton.style.display = "block";
+				} else {
+					refineButton.style.display = "none";
+				}
+			};
+
+			async function startRefinementQuiz() {
+				// Hide quiz button
+				document.getElementById("refineButtonContainer").style.display = "none";
+
+				// Show loading state
+				const quizSection = document.getElementById("quizSection");
+				quizSection.style.display = "block";
+				document.getElementById("quizQuestions").innerHTML =
+					'<div style="text-align: center; padding: 2rem;"><div class="loading-spinner"></div><p style="color: var(--text-secondary); margin-top: 1rem;">Analyzing items and generating questions...</p></div>';
+
+				// Scroll to quiz
+				setTimeout(() => {
+					quizSection.scrollIntoView({ behavior: "smooth", block: "start" });
+				}, 100);
+
+				try {
+					// Get result IDs
+					const resultIds = currentSearchResults.map((r) => r.id);
+
+					// Call API to generate questions
+					const formData = new FormData();
+					resultIds.forEach((id) => formData.append("result_ids", id));
+
+					const response = await fetch("/api/generate-refinement-questions", {
+						method: "POST",
+						body: formData,
+					});
+
+					const result = await response.json();
+
+					if (
+						result.success &&
+						result.questions &&
+						result.questions.length > 0
+					) {
+						quizQuestions = result.questions;
+						displayQuizQuestions(result.questions);
+					} else {
+						document.getElementById("quizQuestions").innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: var(--error);">
+                            <p>❌ Unable to generate questions. The items might be too similar.</p>
+                            <p style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Try using more specific search terms or filters.</p>
+                        </div>
+                    `;
+					}
+				} catch (error) {
+					document.getElementById("quizQuestions").innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--error);">
+                        <p>❌ Error: ${error.message}</p>
+                    </div>
+                `;
+				}
+			}
+
+			function displayQuizQuestions(questions) {
+				quizAnswers = {}; // Reset answers
+
+				const questionsHTML = questions
+					.map(
+						(q, index) => `
+                <div class="quiz-question">
+                    <h4>${index + 1}. ${
+							q.question
+						} <span style="color: var(--text-secondary); font-weight: 400; font-size: 0.9rem;">(optional)</span></h4>
+                    <div class="quiz-options">
+                        ${q.options
+													.map(
+														(option) => `
+                            <div class="quiz-option" 
+                                 onclick="selectQuizOption('${q.field}', '${option}', this)"
+                                 data-field="${q.field}" 
+                                 data-value="${option}">
+                                ${option}
+                            </div>
+                        `
+													)
+													.join("")}
+                    </div>
+                </div>
+            `
+					)
+					.join("");
+
+				document.getElementById("quizQuestions").innerHTML = questionsHTML;
+			}
+
+			function selectQuizOption(field, value, element) {
+				// Remove 'selected' class from siblings
+				const siblings = element.parentElement.querySelectorAll(".quiz-option");
+				siblings.forEach((s) => s.classList.remove("selected"));
+
+				// Add 'selected' class to clicked option
+				element.classList.add("selected");
+
+				// Store answer
+				quizAnswers[field] = value;
+			}
+
+			async function submitQuizAnswers() {
+				// Check if at least ONE question is answered
+				if (Object.keys(quizAnswers).length === 0) {
+					alert(
+						"⚠️ Please answer at least one question to refine your search."
+					);
+					return;
+				}
+
+				// Show loading
+				document.getElementById("quizSection").innerHTML = `
+                <div style="text-align: center; padding: 2rem;">
+                    <div class="loading-spinner"></div>
+                    <p style="color: var(--text-secondary); margin-top: 1rem;">Finding your item...</p>
+                </div>
+            `;
+
+				try {
+					// Call API to refine search
+					const formData = new FormData();
+					currentSearchResults.forEach((r) =>
+						formData.append("result_ids", r.id)
+					);
+					formData.append("answers", JSON.stringify(quizAnswers));
+
+					const response = await fetch("/api/refine-search", {
+						method: "POST",
+						body: formData,
+					});
+
+					const result = await response.json();
+
+					if (result.success) {
+						// Hide quiz section
+						document.getElementById("quizSection").style.display = "none";
+
+						// Display refined results
+						displayRefinedResults(result.results);
+					} else {
+						alert(`❌ Error: ${result.error}`);
+						cancelQuiz();
+					}
+				} catch (error) {
+					alert(`❌ Network error: ${error.message}`);
+					cancelQuiz();
+				}
+			}
+
+			function displayRefinedResults(results) {
+				const refinedResultsList =
+					document.getElementById("refinedResultsList");
+
+				refinedResultsList.innerHTML = results
+					.map((item, index) => {
+						const imagePath = item.metadata.image_path || "";
+						let imageUrl = "";
+
+						if (imagePath) {
+							const filename = imagePath.split("/").pop();
+							imageUrl = `/assets/${filename}`;
+						}
+
+						// Determine badge color based on match percentage
+						let badgeColor = "var(--success)";
+						if (item.match_percentage < 50) badgeColor = "var(--error)";
+						else if (item.match_percentage < 80) badgeColor = "var(--warning)";
+
+						return `
+                <div class="result-item" style="animation-delay: ${
+									index * 0.1
+								}s;">
+                    <div style="display: flex; gap: 1.5rem; align-items: flex-start;">
+                        <div style="flex-shrink: 0;">
+                            ${
+															imageUrl
+																? `
+                                <img src="${imageUrl}" alt="${
+																		item.metadata.title || item.id
+																  }" 
+                                     style="width: 150px; height: 150px; object-fit: cover; border-radius: 12px; border: 2px solid var(--border);"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                <div style="display: none; width: 150px; height: 150px; background: var(--bg-card); border-radius: 12px; border: 2px solid var(--border); align-items: center; justify-content: center; color: var(--text-secondary); font-size: 12px;">
+                                    Image not available
+                                </div>
+                            `
+																: `
+                                <div style="width: 150px; height: 150px; background: var(--bg-card); border-radius: 12px; border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--text-secondary); font-size: 12px;">
+                                    No image
+                                </div>
+                            `
+														}
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="result-header">
+                                ${index === 0 ? "🎯 " : ""}Result ${
+							index + 1
+						}: ${item.metadata.title || item.id}
+                                <span style="background: ${badgeColor}; color: white; padding: 0.25rem 0.75rem; border-radius: 6px; font-size: 0.9rem; font-weight: 600; margin-left: 0.5rem;">
+                                    ${item.match_percentage}% Match
+                                </span>
+                            </div>
+                            <p style="margin-bottom: 1rem; line-height: 1.5;"><strong>Description:</strong> ${
+															item.description
+														}</p>
+                            <div class="result-meta">
+                                <strong>Color:</strong> ${
+																	item.metadata.color || "N/A"
+																} | 
+                                <strong>Material:</strong> ${
+																	item.metadata.material || "N/A"
+																} | 
+                                <strong>Condition:</strong> ${
+																	item.metadata.condition || "N/A"
+																} | 
+                                <strong>Category:</strong> ${
+																	item.metadata.category || "N/A"
+																}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+					})
+					.join("");
+
+				document.getElementById("refinedResults").style.display = "block";
+
+				// Scroll to refined results
+				setTimeout(() => {
+					document.getElementById("refinedResults").scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				}, 100);
+			}
+
+			function cancelQuiz() {
+				document.getElementById("quizSection").style.display = "none";
+				document.getElementById("refineButtonContainer").style.display =
+					"block";
+				quizAnswers = {};
+			}
+		</script>
+	</body>
 </html>

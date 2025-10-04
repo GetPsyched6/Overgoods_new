@@ -1027,3 +1027,141 @@ class SimpleVectorDatabase:
             }
 
             self.add_item(item_id, description, image_path, metadata)
+
+    def analyze_results_for_refinement(
+        self, result_ids: List[str]
+    ) -> Dict[str, Any]:
+        """Analyze search results to find discriminating features for quiz questions"""
+        # Get the full items for these IDs
+        items = [item for item in self.items if item["id"] in result_ids]
+
+        if len(items) < 2:
+            return {
+                "success": False,
+                "error": "Need at least 2 items to generate questions",
+            }
+
+        # Analyze each metadata field to find variation
+        discriminators = []
+
+        # Check color variation
+        colors = [item["metadata"].get("color", "Unknown") for item in items]
+        unique_colors = set(c for c in colors if c not in ["Unknown", "Various"])
+        if len(unique_colors) > 1:
+            discriminators.append(
+                {
+                    "field": "color",
+                    "values": list(unique_colors),
+                    "count": len(unique_colors),
+                    "items_per_value": {
+                        color: [
+                            item["id"]
+                            for item in items
+                            if item["metadata"].get("color") == color
+                        ]
+                        for color in unique_colors
+                    },
+                }
+            )
+
+        # Check brand variation
+        brands = [item["metadata"].get("brand", "") for item in items]
+        unique_brands = set(b for b in brands if b and b not in ["Unknown", ""])
+        if len(unique_brands) > 1:
+            discriminators.append(
+                {
+                    "field": "brand",
+                    "values": list(unique_brands),
+                    "count": len(unique_brands),
+                    "items_per_value": {
+                        brand: [
+                            item["id"]
+                            for item in items
+                            if item["metadata"].get("brand") == brand
+                        ]
+                        for brand in unique_brands
+                    },
+                }
+            )
+
+        # Check condition variation
+        conditions = [
+            item["metadata"].get("condition", "Unknown") for item in items
+        ]
+        unique_conditions = set(
+            c for c in conditions if c not in ["Unknown", "unknown"]
+        )
+        if len(unique_conditions) > 1:
+            discriminators.append(
+                {
+                    "field": "condition",
+                    "values": list(unique_conditions),
+                    "count": len(unique_conditions),
+                    "items_per_value": {
+                        condition: [
+                            item["id"]
+                            for item in items
+                            if item["metadata"].get("condition") == condition
+                        ]
+                        for condition in unique_conditions
+                    },
+                }
+            )
+
+        # Check model variation
+        models = [item["metadata"].get("model", "") for item in items]
+        unique_models = set(m for m in models if m and m not in ["Unknown", ""])
+        if len(unique_models) > 1:
+            discriminators.append(
+                {
+                    "field": "model",
+                    "values": list(unique_models),
+                    "count": len(unique_models),
+                    "items_per_value": {
+                        model: [
+                            item["id"]
+                            for item in items
+                            if item["metadata"].get("model") == model
+                        ]
+                        for model in unique_models
+                    },
+                }
+            )
+
+        # Check material variation
+        materials = [item["metadata"].get("material", "Unknown") for item in items]
+        unique_materials = set(
+            m for m in materials if m not in ["Unknown", "Mixed", "Various"]
+        )
+        if len(unique_materials) > 1:
+            discriminators.append(
+                {
+                    "field": "material",
+                    "values": list(unique_materials),
+                    "count": len(unique_materials),
+                    "items_per_value": {
+                        material: [
+                            item["id"]
+                            for item in items
+                            if item["metadata"].get("material") == material
+                        ]
+                        for material in unique_materials
+                    },
+                }
+            )
+
+        # Sort discriminators by how well they split the results
+        # Best discriminators split items most evenly
+        for disc in discriminators:
+            counts = [len(items) for items in disc["items_per_value"].values()]
+            # Calculate how evenly split (lower variance = more even)
+            disc["variance"] = np.var(counts) if counts else 0
+
+        # Sort by variance (lower is better) and then by count (more options is better)
+        discriminators.sort(key=lambda x: (x["variance"], -x["count"]))
+
+        return {
+            "success": True,
+            "items": items,
+            "discriminators": discriminators[:5],  # Top 5 most useful fields
+        }

@@ -3,7 +3,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 import os
 import uuid
 import shutil
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pathlib import Path
 
 from app.services.watsonx_service import SimpleWatsonxClient
@@ -321,6 +321,159 @@ async def search_items(
         )
 
     except Exception as e:
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@router.post("/api/generate-refinement-questions")
+async def generate_refinement_questions(result_ids: List[str] = Form(...)):
+    """Generate quiz questions to help narrow down search results"""
+    try:
+        print(
+            f"🎯 Generating refinement questions for {len(result_ids)} results: {result_ids}"
+        )
+
+        # Analyze results to find discriminating features
+        analysis = vector_db.analyze_results_for_refinement(result_ids)
+
+        if not analysis["success"]:
+            print(f"❌ Analysis failed: {analysis.get('error')}")
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": analysis.get("error")},
+            )
+
+        print(f"✅ Found {len(analysis['discriminators'])} discriminating features")
+
+        # If no discriminators found, return helpful error
+        if not analysis["discriminators"]:
+            return JSONResponse(
+                content={
+                    "success": False,
+                    "error": "Unable to find distinguishing features. The items may have similar metadata (color, brand, condition, etc.)",
+                }
+            )
+
+        # Generate questions using Watsonx
+        questions_result = watsonx_client.generate_refinement_questions(
+            analysis["discriminators"], item_category="item"
+        )
+
+        if not questions_result["success"]:
+            print(f"❌ Question generation failed: {questions_result.get('error')}")
+            return JSONResponse(
+                status_code=500,
+                content={"success": False, "error": questions_result.get("error")},
+            )
+
+        print(f"✅ Generated {len(questions_result['questions'])} questions")
+
+        return JSONResponse(
+            content={
+                "success": True,
+                "questions": questions_result["questions"],
+                "discriminators": analysis["discriminators"],
+            }
+        )
+
+    except Exception as e:
+        print(f"❌ Error generating refinement questions: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@router.post("/api/refine-search")
+async def refine_search(result_ids: List[str] = Form(...), answers: str = Form(...)):
+    """Re-rank search results based on quiz answers"""
+    try:
+        import json
+
+        # Parse answers (expected format: {"field": "value", ...})
+        try:
+            answers_dict = json.loads(answers)
+        except json.JSONDecodeError:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Invalid answers format"},
+            )
+
+        # Get all items
+        items = [item for item in vector_db.items if item["id"] in result_ids]
+
+        # Score each item based on answers
+        scored_items = []
+        for item in items:
+            score = 0
+            max_score = len(answers_dict)
+
+            # Debug logging
+            print(
+                f"Scoring {item['id']}: {item['metadata'].get('brand')} {item['metadata'].get('color')} {item['metadata'].get('condition')}"
+            )
+
+            for field, expected_value in answers_dict.items():
+                # Make field lookup case-insensitive
+                field_lower = field.lower()
+                item_value = item["metadata"].get(field_lower, "")
+
+                if not item_value:
+                    # If lowercase doesn't work, try original case
+                    item_value = item["metadata"].get(field, "")
+
+                item_value_lower = str(item_value).lower()
+                expected_lower = expected_value.lower()
+
+                print(
+                    f"  Comparing {field_lower}: '{item_value_lower}' vs '{expected_lower}'"
+                )
+
+                # Exact match gets full point
+                if item_value_lower == expected_lower:
+                    score += 1
+                    print(f"    ✓ Exact match! (+1)")
+                # Partial match for certain fields (like material/color variations)
+                elif (
+                    expected_lower in item_value_lower
+                    or item_value_lower in expected_lower
+                ):
+                    score += 0.5
+                    print(f"    ~ Partial match (+0.5)")
+                else:
+                    print(f"    ✗ No match")
+
+            # Calculate match percentage
+            match_percentage = (score / max_score * 100) if max_score > 0 else 0
+            print(f"  Final score: {score}/{max_score} = {match_percentage}%\n")
+
+            scored_items.append(
+                {
+                    "id": item["id"],
+                    "description": item["description"],
+                    "image_path": item["image_path"],
+                    "metadata": item["metadata"],
+                    "match_score": score,
+                    "match_percentage": round(match_percentage, 1),
+                }
+            )
+
+        # Sort by score (descending)
+        scored_items.sort(key=lambda x: x["match_score"], reverse=True)
+
+        return JSONResponse(
+            content={
+                "success": True,
+                "results": scored_items,
+                "count": len(scored_items),
+            }
+        )
+
+    except Exception as e:
+        print(f"Error refining search: {e}")
         return JSONResponse(
             status_code=500, content={"success": False, "error": str(e)}
         )

@@ -2,7 +2,7 @@ import base64
 import json
 import re
 import requests
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from PIL import Image
 import io
 from app.core import config
@@ -1179,3 +1179,151 @@ Provide a concise search description (1-2 sentences) that captures the essential
                     return value
 
         return None
+
+    def generate_refinement_questions(
+        self, discriminators: List[Dict[str, Any]], item_category: str = "item"
+    ) -> Dict[str, Any]:
+        """Generate natural language questions to help narrow down search results"""
+        try:
+            # Get access token
+            access_token = self.get_access_token()
+
+            # Build a description of the discriminators
+            discriminator_descriptions = []
+            for i, disc in enumerate(discriminators[:5], 1):  # Max 5 questions
+                field = disc["field"]
+                values = disc["values"]
+                discriminator_descriptions.append(
+                    f"{i}. **{field.capitalize()}**: Options are {', '.join(values)}"
+                )
+
+            discriminators_text = "\n".join(discriminator_descriptions)
+
+            # Prompt to generate questions
+            prompt = f"""CRITICAL FORMAT RULE: Your response must be PURE JSON starting with {{ and ending with }}. No markdown code blocks, no "Answer:", no "JSON Output:", no text before or after the JSON. Output ONLY the JSON object.
+
+You are helping a warehouse clerk identify the correct item from search results. The clerk searched for "{item_category}" and got multiple results. You need to generate 3-5 natural, conversational questions that will help identify the exact item they're looking for.
+
+Available discriminating features:
+{discriminators_text}
+
+IMPORTANT GUIDELINES:
+1. Questions should be natural and conversational (e.g., "What color is it?" not "Select color:")
+2. Keep questions SHORT - avoid listing all options in the question text
+3. Order questions from most to least discriminating (brand/category first, then specifics)
+4. For model questions, just ask "What model is it?" - DON'T list all models in the question
+5. Questions are OPTIONAL - the user may skip any they don't know
+
+Schema:
+
+{{
+  "questions": [
+    {{
+      "question": "Short, natural question (e.g., 'What brand is it?' or 'What color is it?')",
+      "field": "field_name",
+      "options": ["option1", "option2", "option3"]
+    }},
+    ...
+  ]
+}}
+
+Generate {min(len(discriminators), 5)} questions maximum. Keep question text under 50 characters.
+
+Begin your response with {{ now:"""
+
+            # Prepare API request
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+
+            payload = {
+                "model_id": "meta-llama/llama-3-2-90b-vision-instruct",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "text", "text": prompt}],
+                    }
+                ],
+                "parameters": {
+                    "decoding_method": "greedy",
+                    "max_new_tokens": 1000,
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                },
+                "project_id": self.project_id,
+            }
+
+            api_url = f"{self.url}/ml/v1/text/chat?version=2023-05-29"
+
+            response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+
+            # Handle token expiration
+            if response.status_code == 401:
+                print("Token expired, refreshing...")
+                access_token = self.get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {access_token}"
+                response = requests.post(
+                    api_url, headers=headers, json=payload, timeout=60
+                )
+
+            if response.status_code == 200:
+                result = response.json()
+                generated_text = (
+                    result["choices"][0]["message"]["content"]
+                    if "choices" in result
+                    else result.get("results", [{}])[0].get("generated_text", "")
+                )
+
+                # Parse JSON response
+                try:
+                    json_str = generated_text.strip()
+
+                    # Strip markdown code blocks
+                    if "```" in json_str:
+                        code_block_match = re.search(
+                            r"```(?:json)?\s*\n?(.*?)\n?```", json_str, re.DOTALL
+                        )
+                        if code_block_match:
+                            json_str = code_block_match.group(1).strip()
+
+                    # Extract JSON
+                    if not json_str.startswith("{"):
+                        start_idx = json_str.find("{")
+                        if start_idx != -1:
+                            json_str = json_str[start_idx:]
+
+                    if not json_str.endswith("}"):
+                        end_idx = json_str.rfind("}") + 1
+                        if end_idx > 0:
+                            json_str = json_str[:end_idx]
+
+                    # Unescape
+                    if "\\{" in json_str or "\\}" in json_str:
+                        json_str = json_str.replace("\\{", "{").replace("\\}", "}")
+                        json_str = json_str.replace("\\[", "[").replace("\\]", "]")
+                        json_str = json_str.replace('\\"', '"')
+
+                    parsed_result = json.loads(json_str)
+
+                    return {
+                        "success": True,
+                        "questions": parsed_result.get("questions", []),
+                    }
+
+                except json.JSONDecodeError as e:
+                    print(f"Failed to parse questions JSON: {e}")
+                    return {
+                        "success": False,
+                        "error": f"JSON parsing error: {str(e)}",
+                    }
+            else:
+                return {
+                    "success": False,
+                    "error": f"API call failed: {response.status_code}",
+                }
+
+        except Exception as e:
+            print(f"Error generating refinement questions: {e}")
+            return {"success": False, "error": str(e)}
