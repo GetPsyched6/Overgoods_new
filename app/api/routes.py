@@ -270,21 +270,34 @@ async def search_items(
                     pass
         elif natural_query:
             # Natural language search
-            nl_result = watsonx_client.process_natural_language_search(natural_query)
+            # For very short queries (1-2 words), skip NL processing for better precision
+            query_words = natural_query.strip().split()
+            is_short_query = len(query_words) <= 2 and len(natural_query) < 20
 
-            if nl_result["success"]:
-                # Search using the processed natural language query
-                results = vector_db.search_by_text(
-                    nl_result["processed_query"], n_results
-                )
-                print(
-                    f"Natural language search: '{natural_query}' -> '{nl_result['processed_query'][:100]}...'"
-                )
+            if is_short_query:
+                # Direct search for short queries (e.g., "cable", "laptop", "usb cable")
+                # This avoids over-expansion and gives better results with frequency boost
+                results = vector_db.search_by_text(natural_query, n_results)
+                print(f"Direct search (short query): '{natural_query}'")
             else:
-                return JSONResponse(
-                    status_code=500,
-                    content={"success": False, "error": nl_result["error"]},
+                # Use Watsonx NL processing for complex queries
+                nl_result = watsonx_client.process_natural_language_search(
+                    natural_query
                 )
+
+                if nl_result["success"]:
+                    # Search using the processed natural language query
+                    results = vector_db.search_by_text(
+                        nl_result["processed_query"], n_results
+                    )
+                    print(
+                        f"Natural language search: '{natural_query}' -> '{nl_result['processed_query'][:100]}...'"
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=500,
+                        content={"success": False, "error": nl_result["error"]},
+                    )
         else:
             # Form-based search
             form_data = {

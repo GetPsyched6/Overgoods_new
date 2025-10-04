@@ -44,7 +44,7 @@ class SimpleVectorDatabase:
             json.dump(self.items, f, indent=2)
 
     def _calculate_similarity(self, text1: str, text2: str) -> float:
-        """Calculate text similarity using improved word-based matching optimized for search"""
+        """Calculate text similarity using improved word-based matching with keyword frequency"""
         text1_lower = text1.lower()
         text2_lower = text2.lower()
 
@@ -58,19 +58,41 @@ class SimpleVectorDatabase:
         if not words1 or not words2:
             return sequence_sim
 
-        # Calculate intersection-based similarity (favor recall over precision for search)
+        # Calculate intersection-based similarity
         intersection = len(words1.intersection(words2))
-
-        # Use the smaller set as denominator to favor queries that are subsets of descriptions
         min_words = min(len(words1), len(words2))
         intersection_sim = intersection / min_words if min_words > 0 else 0
 
-        # Also calculate traditional Jaccard for balance
+        # Jaccard similarity
         union = len(words1.union(words2))
         jaccard_sim = intersection / union if union > 0 else 0
 
-        # Weighted combination: favor intersection-based for search queries
-        combined_sim = 0.2 * sequence_sim + 0.6 * intersection_sim + 0.2 * jaccard_sim
+        # KEYWORD FREQUENCY BOOST: Count how often query words appear in the description
+        # This helps prioritize items where the search term is the PRIMARY subject
+        frequency_boost = 0.0
+        if (
+            len(words1) <= 5
+        ):  # Only for short queries (actual searches, not long descriptions)
+            all_words2 = text2_lower.split()  # Include duplicates for frequency
+            total_matches = 0
+            for query_word in words1:
+                if len(query_word) > 2:  # Ignore tiny words like "a", "in"
+                    count = all_words2.count(query_word)
+                    total_matches += count
+
+            # Normalize by description length to avoid bias toward long texts
+            if len(all_words2) > 0:
+                # Frequency score: how many times query words appear relative to text length
+                frequency_score = total_matches / max(len(all_words2), 10)
+                frequency_boost = min(frequency_score * 5, 0.4)  # Cap at 0.4
+
+        # Weighted combination with frequency boost
+        combined_sim = (
+            0.15 * sequence_sim
+            + 0.45 * intersection_sim
+            + 0.15 * jaccard_sim
+            + 0.25 * frequency_boost  # NEW: Reward high keyword frequency
+        )
 
         # Strong boost for exact brand/model matches
         important_terms = [
@@ -83,6 +105,12 @@ class SimpleVectorDatabase:
             "allen-bradley",
             "anthem",
             "videostudio",
+            "cable",
+            "usb",
+            "laptop",
+            "chromebook",
+            "lenovo",
+            "asus",
         ]
         boost_count = 0
         for term in important_terms:
@@ -91,7 +119,7 @@ class SimpleVectorDatabase:
 
         # Apply boost based on number of important terms matched
         if boost_count > 0:
-            combined_sim += 0.3 * boost_count  # Stronger boost for multiple matches
+            combined_sim += 0.2 * boost_count  # Boost for important term matches
 
         return min(combined_sim, 1.0)  # Cap at 1.0
 
@@ -156,19 +184,27 @@ class SimpleVectorDatabase:
                 )
                 meta_similarity = self._calculate_similarity(query, metadata_text)
 
-                # Use weighted average favoring metadata for structured searches
-                # If query contains field keywords like "color", "material", favor metadata more
+                # Use weighted average based on query type
                 query_lower = query.lower()
+                query_words = query_lower.split()
+
+                # Check if it's a structured query (mentions field names)
                 is_structured = any(
                     keyword in query_lower
                     for keyword in ["color", "material", "condition", "category"]
                 )
 
+                # Check if it's a short, focused query (likely a specific item search)
+                is_short_query = len(query_words) <= 3 and len(query) < 30
+
                 if is_structured:
                     # For structured queries, heavily favor metadata matches
                     similarity = 0.3 * desc_similarity + 0.7 * meta_similarity
+                elif is_short_query:
+                    # For short queries, heavily favor description (frequency boost works best here)
+                    similarity = 0.8 * desc_similarity + 0.2 * meta_similarity
                 else:
-                    # For free-text queries, balance both
+                    # For longer natural language queries, balance both
                     similarity = 0.6 * desc_similarity + 0.4 * meta_similarity
 
                 results.append(
