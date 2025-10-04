@@ -51,11 +51,43 @@ async def root():
         return f.read()
 
 
-@router.post("/api/reprocess-descriptions")
-async def reprocess_descriptions():
-    """Reprocess all items with AI descriptions"""
+@router.post("/api/sync-assets")
+async def sync_assets():
+    """Scan assets folder and add any new images to database"""
     try:
-        result = vector_db.generate_ai_descriptions()
+        result = vector_db.sync_with_assets()
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@router.post("/api/generate-embeddings")
+async def generate_embeddings(force: bool = Form(False)):
+    """Generate CLIP embeddings for items
+
+    Args:
+        force: If True, regenerate embeddings for all items
+    """
+    try:
+        result = vector_db.generate_clip_embeddings(force_regenerate=force)
+        return JSONResponse(content=result)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
+@router.post("/api/reprocess-descriptions")
+async def reprocess_descriptions(force: bool = Form(False)):
+    """Reprocess all items with AI descriptions
+
+    Args:
+        force: If True, regenerate descriptions for all items even if they already have AI descriptions
+    """
+    try:
+        result = vector_db.generate_ai_descriptions(force_regenerate=force)
         return JSONResponse(content=result)
     except Exception as e:
         return JSONResponse(
@@ -168,29 +200,62 @@ async def search_items(
         results = []
 
         if file:
-            # Image-based search
+            # Image-based search using CLIP embeddings
             file_path = save_uploaded_file(file)
 
-            # Generate description for the uploaded image
-            embedding_result = watsonx_client.generate_search_embedding(file_path)
-
-            # Clean up uploaded file
             try:
-                os.remove(file_path)
-            except:
-                pass
+                # Try CLIP-based search (fast, accurate)
+                from app.services.clip_service import get_clip_service
 
-            if embedding_result["success"]:
-                # Search using the generated description
-                results = vector_db.search_by_text(
-                    embedding_result["description"], n_results
+                clip_service = get_clip_service()
+                query_embedding = clip_service.encode_image(file_path)
+                results = vector_db.search_by_image_embedding(
+                    query_embedding, n_results
                 )
-                print(f"Image search query: {embedding_result['description'][:100]}...")
-            else:
-                return JSONResponse(
-                    status_code=500,
-                    content={"success": False, "error": embedding_result["error"]},
-                )
+
+                print(f"🎯 CLIP image search completed: {len(results)} results")
+
+                # If no results (no embeddings in DB), fall back to text-based search
+                if not results:
+                    print("⚠️  Falling back to text-based search...")
+                    embedding_result = watsonx_client.generate_search_embedding(
+                        file_path
+                    )
+                    if embedding_result["success"]:
+                        results = vector_db.search_by_text(
+                            embedding_result["description"], n_results
+                        )
+                        print(
+                            f"Text search query: {embedding_result['description'][:100]}..."
+                        )
+                    else:
+                        return JSONResponse(
+                            status_code=500,
+                            content={
+                                "success": False,
+                                "error": embedding_result["error"],
+                            },
+                        )
+
+            except Exception as e:
+                print(f"❌ CLIP search failed: {e}")
+                # Fall back to text-based search
+                embedding_result = watsonx_client.generate_search_embedding(file_path)
+                if embedding_result["success"]:
+                    results = vector_db.search_by_text(
+                        embedding_result["description"], n_results
+                    )
+                else:
+                    return JSONResponse(
+                        status_code=500,
+                        content={"success": False, "error": str(e)},
+                    )
+            finally:
+                # Clean up uploaded file
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
         elif natural_query:
             # Natural language search
             nl_result = watsonx_client.process_natural_language_search(natural_query)

@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>AI Smart Search</title>
     <style>
         :root {
@@ -228,6 +231,60 @@
             border-color: var(--accent-primary);
             background: rgba(99, 102, 241, 0.05);
             transform: translateY(-2px);
+        }
+
+        .image-preview-container {
+            position: relative;
+            display: none;
+            max-width: 400px;
+            margin: 1rem auto;
+        }
+
+        .image-preview-container.active {
+            display: block;
+        }
+
+        .image-preview {
+            width: 100%;
+            max-height: 300px;
+            object-fit: contain;
+            border-radius: 12px;
+            border: 2px solid var(--border);
+            background: var(--bg-card);
+        }
+
+        .clear-image-btn {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: var(--error);
+            color: white;
+            border: 2px solid var(--bg);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        .clear-image-btn:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+
+        .upload-area.has-image {
+            padding: 1.5rem;
+            cursor: default;
+        }
+
+        .upload-area.has-image:hover {
+            transform: none;
         }
 
         .btn {
@@ -499,18 +556,24 @@
                     </svg>
                     Image Search
                 </h3>
-                <div class="upload-area" onclick="document.getElementById('searchFileInput').click()">
-                    <div style="width: 64px; height: 64px; margin: 0 auto 1rem; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
-                        <svg viewBox="0 0 24 24" style="width: 32px; height: 32px; fill: white;">
-                            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
-                        </svg>
+                <div id="uploadArea" class="upload-area" onclick="triggerFileInput()">
+                    <div id="uploadPrompt">
+                        <div style="width: 64px; height: 64px; margin: 0 auto 1rem; background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary)); border-radius: 16px; display: flex; align-items: center; justify-content: center;">
+                            <svg viewBox="0 0 24 24" style="width: 32px; height: 32px; fill: white;">
+                                <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"/>
+                            </svg>
+                        </div>
+                        <p style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--text-primary);">
+                            <span id="uploadText">Drop your image here or click to browse</span>
+                        </p>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                            Supports JPG, PNG, GIF, WebP • Max 10MB
+                        </p>
                     </div>
-                    <p style="font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--text-primary);">
-                        <span id="uploadText">Drop your image here or click to browse</span>
-                    </p>
-                    <p style="color: var(--text-secondary); font-size: 0.9rem;">
-                        Supports JPG, PNG, GIF, WebP • Max 10MB
-                    </p>
+                    <div id="previewContainer" class="image-preview-container">
+                        <img id="imagePreview" class="image-preview" alt="Preview">
+                        <button class="clear-image-btn" onclick="clearImageSelection(event)" title="Remove image">×</button>
+                    </div>
                     <input type="file" id="searchFileInput" accept="image/*" style="display: none;" onchange="handleSearchFileSelect(event)">
                 </div>
                 <button id="imageSearchBtn" class="btn" onclick="searchByImage()" disabled>Search by Image</button>
@@ -521,14 +584,42 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
                     </svg>
-                    AI Management
+                    AI Text Descriptions
                 </h3>
                 <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                    Regenerate AI descriptions for all items in your database using the latest models.
+                    Generate detailed text descriptions for items using Watsonx AI.
                 </p>
-                <button class="btn btn-warning" onclick="reprocessDescriptions()">
-                    Reprocess with AI
-                </button>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn btn-warning" onclick="reprocessDescriptions(false)">
+                        Process New Items
+                    </button>
+                    <button class="btn" onclick="reprocessDescriptions(true)" style="background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);">
+                        Force Regenerate All
+                    </button>
+                </div>
+            </div>
+
+            <div class="search-section">
+                <h3>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z"/>
+                    </svg>
+                    CLIP Image Embeddings
+                </h3>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Manage visual embeddings for fast and accurate image search. Run "Sync" if you added new images.
+                </p>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn" onclick="syncAssets()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+                        🔄 Sync New Images
+                    </button>
+                    <button class="btn btn-warning" onclick="generateEmbeddings(false)">
+                        Generate Embeddings
+                    </button>
+                    <button class="btn" onclick="generateEmbeddings(true)" style="background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);">
+                        Force Regenerate All
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -561,12 +652,66 @@
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-theme', savedTheme);
         
+        function triggerFileInput() {
+            const previewContainer = document.getElementById('previewContainer');
+            if (!previewContainer.classList.contains('active')) {
+                document.getElementById('searchFileInput').click();
+            }
+        }
+
         function handleSearchFileSelect(event) {
             searchFile = event.target.files[0];
             if (searchFile) {
-                document.getElementById('imageSearchBtn').disabled = false;
-                document.getElementById('uploadText').textContent = `Selected: ${searchFile.name}`;
+                // Validate file type
+                if (!searchFile.type.startsWith('image/')) {
+                    alert('Please select an image file');
+                    return;
+                }
+                
+                // Validate file size (10MB)
+                if (searchFile.size > 10 * 1024 * 1024) {
+                    alert('Image size must be less than 10MB');
+                    return;
+                }
+                
+                // Show preview
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const preview = document.getElementById('imagePreview');
+                    const previewContainer = document.getElementById('previewContainer');
+                    const uploadPrompt = document.getElementById('uploadPrompt');
+                    const uploadArea = document.getElementById('uploadArea');
+                    
+                    preview.src = e.target.result;
+                    previewContainer.classList.add('active');
+                    uploadPrompt.style.display = 'none';
+                    uploadArea.classList.add('has-image');
+                    
+                    document.getElementById('imageSearchBtn').disabled = false;
+                };
+                reader.readAsDataURL(searchFile);
             }
+        }
+
+        function clearImageSelection(event) {
+            event.stopPropagation();
+            
+            // Reset file input
+            document.getElementById('searchFileInput').value = '';
+            searchFile = null;
+            
+            // Hide preview
+            const preview = document.getElementById('imagePreview');
+            const previewContainer = document.getElementById('previewContainer');
+            const uploadPrompt = document.getElementById('uploadPrompt');
+            const uploadArea = document.getElementById('uploadArea');
+            
+            preview.src = '';
+            previewContainer.classList.remove('active');
+            uploadPrompt.style.display = 'block';
+            uploadArea.classList.remove('has-image');
+            
+            document.getElementById('imageSearchBtn').disabled = true;
         }
         
         async function searchByNaturalLanguage() {
@@ -701,6 +846,14 @@
             }
             
             document.getElementById('results').style.display = 'block';
+            
+            // Auto-scroll to results section
+            setTimeout(() => {
+                document.getElementById('results').scrollIntoView({ 
+                    behavior: 'smooth', 
+                    block: 'start' 
+                });
+            }, 100);
         }
         
         function displayError(error) {
@@ -709,32 +862,133 @@
             document.getElementById('results').style.display = 'block';
         }
 
-        async function reprocessDescriptions() {
+        async function syncAssets() {
             const button = event.target;
             const originalText = button.textContent;
             
             button.disabled = true;
-            button.textContent = 'Processing...';
+            button.textContent = '🔄 Syncing...';
+            const originalBg = button.style.background;
             button.style.background = 'var(--text-secondary)';
             
             try {
-                const response = await fetch('/api/reprocess-descriptions', {
+                const response = await fetch('/api/sync-assets', {
                     method: 'POST'
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    alert(`Successfully updated ${result.updated} items with AI descriptions!`);
+                    if (result.added > 0) {
+                        alert(`✅ Synced successfully!\n\n📁 Found ${result.added} new image(s)\n📊 Total items: ${result.total}\n\n💡 Remember to click "Generate Embeddings" to enable CLIP search for new images!`);
+                    } else {
+                        alert(`✅ Everything is in sync!\n\n📊 Total items: ${result.total}\nNo new images found in the assets folder.`);
+                    }
                 } else {
-                    alert(`Error: ${result.error}`);
+                    alert(`❌ Error: ${result.error}`);
                 }
             } catch (error) {
-                alert(`Network error: ${error.message}`);
+                alert(`❌ Network error: ${error.message}`);
             } finally {
                 button.disabled = false;
                 button.textContent = originalText;
-                button.style.background = '';
+                button.style.background = originalBg;
+            }
+        }
+
+        async function generateEmbeddings(forceRegenerate = false) {
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            // Confirm if force regenerating
+            if (forceRegenerate) {
+                const confirmed = confirm('⚠️ This will regenerate CLIP embeddings for ALL items.\n\nThis will take a few minutes as it loads the CLIP model and processes all images.\n\nContinue?');
+                if (!confirmed) return;
+            }
+            
+            button.disabled = true;
+            button.textContent = '🎨 Processing...';
+            const originalBg = button.style.background;
+            button.style.background = 'var(--text-secondary)';
+            
+            try {
+                const formData = new FormData();
+                formData.append('force', forceRegenerate);
+                
+                const response = await fetch('/api/generate-embeddings', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (result.force_regenerated) {
+                        alert(`✅ Successfully regenerated CLIP embeddings for ${result.updated} items!\n\n📊 Total items: ${result.total}\n⚡ Image search is now up to date!`);
+                    } else if (result.updated === 0 && result.already_processed > 0) {
+                        alert(`✅ All ${result.total} items already have CLIP embeddings!\n\nNo items needed processing.\n\n💡 Tip: Use "Force Regenerate All" if you want to update embeddings.`);
+                    } else if (result.updated > 0) {
+                        alert(`✅ Successfully generated CLIP embeddings for ${result.updated} item(s)!\n\n📊 Total items: ${result.total}\n✓ Already had embeddings: ${result.already_processed}\n⚡ Image search is now ready!`);
+                    } else {
+                        alert(`No items found to process. Total items: ${result.total}`);
+                    }
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Network error: ${error.message}`);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+                button.style.background = originalBg;
+            }
+        }
+
+        async function reprocessDescriptions(forceRegenerate = false) {
+            const button = event.target;
+            const originalText = button.textContent;
+            
+            // Confirm if force regenerating
+            if (forceRegenerate) {
+                const confirmed = confirm('⚠️ This will regenerate AI descriptions for ALL items, even those that already have descriptions.\n\nThis may take several minutes and will use API credits.\n\nContinue?');
+                if (!confirmed) return;
+            }
+            
+            button.disabled = true;
+            button.textContent = 'Processing...';
+            const originalBg = button.style.background;
+            button.style.background = 'var(--text-secondary)';
+            
+            try {
+                const formData = new FormData();
+                formData.append('force', forceRegenerate);
+                
+                const response = await fetch('/api/reprocess-descriptions', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    if (result.force_regenerated) {
+                        alert(`✅ Successfully regenerated ${result.updated} items with fresh AI descriptions!\n\nTotal items: ${result.total}`);
+                    } else if (result.updated === 0 && result.already_processed > 0) {
+                        alert(`✅ All ${result.total} items already have AI descriptions!\n\nNo items needed to be processed.\n\nTip: Use "Force Regenerate All" to update existing descriptions.`);
+                    } else if (result.updated > 0) {
+                        alert(`✅ Successfully updated ${result.updated} items with AI descriptions!\n\nTotal items: ${result.total}\nAlready processed: ${result.already_processed}`);
+                    } else {
+                        alert(`No items found to process. Total items: ${result.total}`);
+                    }
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Network error: ${error.message}`);
+            } finally {
+                button.disabled = false;
+                button.textContent = originalText;
+                button.style.background = originalBg;
             }
         }
     </script>

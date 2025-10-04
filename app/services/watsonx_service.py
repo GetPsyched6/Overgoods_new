@@ -1,5 +1,6 @@
 import base64
 import json
+import re
 import requests
 from typing import Dict, Any, Optional
 from PIL import Image
@@ -140,8 +141,17 @@ Return ONLY a JSON object:
 
                 # Try to parse JSON from the response
                 try:
-                    # Try to find JSON in the response - look for first { to last }
+                    # Strip markdown code blocks if present
                     json_str = generated_text.strip()
+
+                    # Handle markdown code blocks: ```json\n{...}\n``` or ```\n{...}\n```
+                    if "```" in json_str:
+                        code_block_match = re.search(
+                            r"```(?:json)?\s*\n?(.*?)\n?```", json_str, re.DOTALL
+                        )
+                        if code_block_match:
+                            json_str = code_block_match.group(1).strip()
+                            print(f"Extracted JSON from markdown code block")
 
                     # If it starts with text before JSON, extract just the JSON part
                     if not json_str.startswith("{"):
@@ -154,6 +164,18 @@ Return ONLY a JSON object:
                         end_idx = json_str.rfind("}") + 1
                         if end_idx > 0:
                             json_str = json_str[:end_idx]
+
+                    # CRITICAL: Unescape JSON BEFORE checking if it's valid
+                    if (
+                        "\\{" in json_str
+                        or "\\}" in json_str
+                        or "\\[" in json_str
+                        or "\\]" in json_str
+                    ):
+                        print("Detected escaped JSON, unescaping...")
+                        json_str = json_str.replace("\\{", "{").replace("\\}", "}")
+                        json_str = json_str.replace("\\[", "[").replace("\\]", "]")
+                        json_str = json_str.replace('\\"', '"')
 
                     if json_str.startswith("{") and json_str.endswith("}"):
                         parsed_result = json.loads(json_str)
@@ -407,8 +429,19 @@ Output JSON only—no extra prose outside the JSON."""
 
                 # Try to parse JSON from the response
                 try:
-                    # Try to find JSON in the response - look for first { to last }
+                    # Strip markdown code blocks if present (```json ... ``` or ``` ... ```)
                     json_str = generated_text.strip()
+
+                    # Handle markdown code blocks: ```json\n{...}\n``` or ```\n{...}\n```
+                    if "```" in json_str:
+                        # Extract content between code fences
+                        # Match ```json or ``` followed by content and closing ```
+                        code_block_match = re.search(
+                            r"```(?:json)?\s*\n?(.*?)\n?```", json_str, re.DOTALL
+                        )
+                        if code_block_match:
+                            json_str = code_block_match.group(1).strip()
+                            print(f"Extracted JSON from markdown code block")
 
                     # If it starts with text before JSON, extract just the JSON part
                     if not json_str.startswith("{"):
@@ -421,6 +454,19 @@ Output JSON only—no extra prose outside the JSON."""
                         end_idx = json_str.rfind("}") + 1
                         if end_idx > 0:
                             json_str = json_str[:end_idx]
+
+                    # CRITICAL: Unescape JSON BEFORE checking if it's valid
+                    # The API sometimes returns escaped JSON like \{ instead of {
+                    if (
+                        "\\{" in json_str
+                        or "\\}" in json_str
+                        or "\\[" in json_str
+                        or "\\]" in json_str
+                    ):
+                        print("Detected escaped JSON, unescaping...")
+                        json_str = json_str.replace("\\{", "{").replace("\\}", "}")
+                        json_str = json_str.replace("\\[", "[").replace("\\]", "]")
+                        json_str = json_str.replace('\\"', '"')  # Unescape quotes too
 
                     if json_str.startswith("{") and json_str.endswith("}"):
                         parsed_result = json.loads(json_str)
@@ -963,6 +1009,15 @@ Provide a concise search description (1-2 sentences) that captures the essential
             match = re.search(pattern, text, re.IGNORECASE)
             if match:
                 value = match.group(1).strip().strip("*").strip()
+
+                # Clean up LaTeX artifacts that sometimes appear in AI responses
+                # Remove patterns like "} \\", "\text{", "\\", etc.
+                value = re.sub(r"\}\s*\\+", "", value)  # Remove "} \\" or "} \\\\"
+                value = re.sub(
+                    r"\\text\{([^}]*)\}", r"\1", value
+                )  # Extract from \text{...}
+                value = re.sub(r"\\+$", "", value)  # Remove trailing backslashes
+                value = re.sub(r"\s+", " ", value).strip()  # Normalize whitespace
 
                 # If valid_values provided, check if extracted value is in the list
                 if valid_values:
