@@ -479,6 +479,152 @@ async def refine_search(result_ids: List[str] = Form(...), answers: str = Form(.
         )
 
 
+@router.post("/api/verify-invoice")
+async def verify_invoice(
+    invoice: UploadFile = File(...),
+    item_id: str = Form(...),
+    item_metadata: str = Form(...),
+):
+    """Verify invoice against top search result item"""
+    try:
+        import json
+        import os
+        import tempfile
+
+        print(f"\n📋 Verifying invoice for item {item_id}...")
+
+        # Parse item metadata
+        try:
+            metadata_dict = json.loads(item_metadata)
+        except json.JSONDecodeError:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "Invalid metadata format"},
+            )
+
+        # Save uploaded invoice temporarily with correct extension
+        file_extension = os.path.splitext(invoice.filename)[1] or ".jpg"
+        print(f"Invoice filename: {invoice.filename}, extension: {file_extension}")
+
+        with tempfile.NamedTemporaryFile(
+            delete=False, suffix=file_extension
+        ) as temp_file:
+            content = await invoice.read()
+            temp_file.write(content)
+            invoice_path = temp_file.name
+
+        try:
+            # Extract invoice data using Watsonx
+            print(f"Extracting invoice data from: {invoice_path}")
+            invoice_result = watsonx_client.extract_invoice_data(invoice_path)
+            print(f"Invoice extraction result: {invoice_result.get('success', False)}")
+
+            if not invoice_result["success"]:
+                error_msg = invoice_result.get("error", "Unknown error")
+                raw_response = invoice_result.get("raw_response", "")
+                print(f"❌ Invoice extraction failed: {error_msg}")
+                if raw_response:
+                    print(f"Raw response: {raw_response[:200]}...")
+                return JSONResponse(
+                    status_code=500,
+                    content={
+                        "success": False,
+                        "error": f"Failed to extract invoice data: {error_msg}",
+                    },
+                )
+
+            invoice_data = invoice_result["data"]
+            print(f"Invoice data: {invoice_data}")
+
+            # Compare invoice with item metadata
+            discrepancies = []
+            match_count = 0
+            total_fields = 0
+
+            # Fields to compare (only if present in both)
+            comparable_fields = {
+                "brand": "Brand",
+                "model": "Model",
+                "color": "Color",
+                "material": "Material",
+                "condition": "Condition",
+                "category": "Category",
+            }
+
+            for field_key, field_name in comparable_fields.items():
+                invoice_value = invoice_data.get(field_key)
+                item_value = metadata_dict.get(field_key)
+
+                # Only compare if both values exist and are not null
+                if invoice_value and item_value and invoice_value != "null":
+                    total_fields += 1
+                    invoice_lower = str(invoice_value).lower()
+                    item_lower = str(item_value).lower()
+
+                    print(
+                        f"Comparing {field_name}: invoice='{invoice_lower}' vs item='{item_lower}'"
+                    )
+
+                    # Check for match (exact or partial)
+                    if invoice_lower == item_lower:
+                        match_count += 1
+                        print(f"  ✓ Exact match")
+                    elif invoice_lower in item_lower or item_lower in invoice_lower:
+                        match_count += 0.5
+                        print(f"  ~ Partial match")
+                    else:
+                        discrepancies.append(
+                            f"{field_name}: Invoice says '{invoice_value}', but item is '{item_value}'"
+                        )
+                        print(f"  ✗ Mismatch!")
+
+            # Calculate match percentage
+            if total_fields > 0:
+                match_percentage = (match_count / total_fields) * 100
+            else:
+                # If no comparable fields, consider it uncertain
+                match_percentage = 50.0
+
+            print(f"\nMatch score: {match_count}/{total_fields} = {match_percentage}%")
+            print(f"Discrepancies: {discrepancies}")
+
+            # Determine match status
+            if match_percentage >= 70:
+                match_status = "match"
+                confidence = "High" if match_percentage >= 85 else "Medium"
+            elif match_percentage >= 40:
+                match_status = "partial"
+                confidence = "Low"
+            else:
+                match_status = "mismatch"
+                confidence = "Very Low"
+
+            return JSONResponse(
+                content={
+                    "success": True,
+                    "match_status": match_status,
+                    "match_percentage": round(match_percentage, 1),
+                    "confidence": confidence,
+                    "discrepancies": discrepancies,
+                    "invoice_data": invoice_data,
+                }
+            )
+
+        finally:
+            # Clean up temporary file
+            if os.path.exists(invoice_path):
+                os.remove(invoice_path)
+
+    except Exception as e:
+        print(f"❌ Error verifying invoice: {e}")
+        import traceback
+
+        traceback.print_exc()
+        return JSONResponse(
+            status_code=500, content={"success": False, "error": str(e)}
+        )
+
+
 @router.get("/description", response_class=HTMLResponse)
 async def description_page():
     """Serve the description generation page"""

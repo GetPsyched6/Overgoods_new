@@ -394,7 +394,7 @@
 				border: 1px solid var(--border);
 				border-radius: 16px;
 				padding: 1.5rem;
-				margin: 1rem 0;
+				margin-bottom: 1.5rem;
 				transition: all 0.3s ease;
 				animation: slideInRight 0.5s ease-out;
 			}
@@ -903,7 +903,7 @@
 							box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 						"
 					>
-						🎯 Help Me Find It (Smart Quiz)
+						Refine Search Results
 					</button>
 					<p
 						style="
@@ -912,7 +912,7 @@
 							font-size: 0.9rem;
 						"
 					>
-						Not sure which one? Answer 3-5 quick questions to narrow it down!
+						Answer questions to narrow down results and verify authenticity
 					</p>
 				</div>
 			</div>
@@ -920,14 +920,47 @@
 			<!-- Refinement Quiz Section -->
 			<div id="quizSection" class="quiz-container" style="display: none">
 				<h3 style="margin-bottom: 1.5rem; color: var(--text-primary)">
-					🎯 Smart Item Finder
+					Refine Search Results
 				</h3>
 				<p style="color: var(--text-secondary); margin-bottom: 2rem">
 					Answer the questions you know to help narrow down results.
 					<strong>Skip any you're unsure about!</strong>
 				</p>
 
-				<div id="quizQuestions"></div>
+				<!-- Shipper/Consignee Question -->
+				<div
+					class="quiz-question"
+					style="
+						border: 2px solid var(--accent-primary);
+						background: rgba(99, 102, 241, 0.05);
+					"
+				>
+					<h4 style="color: var(--accent-primary)">
+						Are you the shipper or consignee?
+					</h4>
+					<p
+						style="
+							color: var(--text-secondary);
+							font-size: 0.9rem;
+							margin: 0.5rem 0 1rem 0;
+						"
+					>
+						Required for verification purposes
+					</p>
+					<div class="quiz-options">
+						<div class="quiz-option" onclick="selectUserType('shipper', this)">
+							Shipper (I'm sending the item)
+						</div>
+						<div
+							class="quiz-option"
+							onclick="selectUserType('consignee', this)"
+						>
+							Consignee (I'm receiving the item)
+						</div>
+					</div>
+				</div>
+
+				<div id="quizQuestions" style="margin-top: 1.5rem"></div>
 
 				<div style="display: flex; gap: 1rem; margin-top: 2rem">
 					<button
@@ -945,7 +978,7 @@
 							transition: all 0.3s ease;
 						"
 					>
-						✓ Find My Item
+						Find My Item
 					</button>
 					<button
 						onclick="cancelQuiz()"
@@ -969,10 +1002,132 @@
 
 			<!-- Refined Results Section -->
 			<div id="refinedResults" class="results-container" style="display: none">
+				<!-- Verification Result at top -->
+				<div id="verificationResult" style="display: none; margin-bottom: 2rem">
+					<div id="verificationMessage"></div>
+				</div>
+
 				<h3 style="margin-bottom: 1.5rem; color: var(--text-primary)">
-					✨ Refined Results (Ranked by Match)
+					Refined Results (Ranked by Match)
 				</h3>
 				<div id="refinedResultsList"></div>
+			</div>
+
+			<!-- Invoice Verification Section (for shippers only) -->
+			<div
+				id="invoiceVerification"
+				class="quiz-container"
+				style="display: none"
+			>
+				<h3 style="margin-bottom: 1.5rem; color: var(--text-primary)">
+					Invoice Verification
+				</h3>
+				<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+					To verify this shipment and prevent fraud, please provide the invoice
+					for the item in question.
+				</p>
+
+				<div
+					class="upload-area"
+					onclick="document.getElementById('invoiceFileInput').click()"
+					style="margin-bottom: 1.5rem"
+				>
+					<div id="invoiceUploadPrompt">
+						<div
+							style="
+								width: 64px;
+								height: 64px;
+								margin: 0 auto 1rem;
+								background: linear-gradient(
+									135deg,
+									var(--accent-primary),
+									var(--accent-secondary)
+								);
+								border-radius: 16px;
+								display: flex;
+								align-items: center;
+								justify-content: center;
+							"
+						>
+							<svg
+								viewBox="0 0 24 24"
+								style="width: 32px; height: 32px; fill: white"
+							>
+								<path
+									d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z"
+								/>
+							</svg>
+						</div>
+						<p
+							style="
+								font-size: 1.1rem;
+								margin-bottom: 0.5rem;
+								color: var(--text-primary);
+							"
+						>
+							Upload Invoice (Optional)
+						</p>
+						<p style="color: var(--text-secondary); font-size: 0.9rem">
+							JPG or PNG only • Max 10MB
+						</p>
+					</div>
+					<div id="invoicePreviewContainer" class="image-preview-container">
+						<img
+							id="invoicePreview"
+							class="image-preview"
+							alt="Invoice Preview"
+						/>
+						<button
+							class="clear-image-btn"
+							onclick="clearInvoice(event)"
+							title="Remove invoice"
+						>
+							×
+						</button>
+					</div>
+					<input
+						type="file"
+						id="invoiceFileInput"
+						accept="image/jpeg,image/png,image/jpg"
+						style="display: none"
+						onchange="handleInvoiceSelect(event)"
+					/>
+				</div>
+
+				<div style="display: flex; gap: 1rem">
+					<button
+						onclick="submitInvoiceVerification()"
+						style="
+							flex: 1;
+							background: var(--success);
+							color: white;
+							border: none;
+							padding: 1rem;
+							border-radius: 12px;
+							font-size: 1rem;
+							font-weight: 600;
+							cursor: pointer;
+						"
+					>
+						Verify Invoice
+					</button>
+					<button
+						onclick="skipInvoiceVerification()"
+						style="
+							flex: 1;
+							background: var(--bg-card);
+							color: var(--text-primary);
+							border: 1px solid var(--border);
+							padding: 1rem;
+							border-radius: 12px;
+							font-size: 1rem;
+							font-weight: 600;
+							cursor: pointer;
+						"
+					>
+						Skip Verification
+					</button>
+				</div>
 			</div>
 		</div>
 
@@ -1429,6 +1584,9 @@
 			let currentSearchResults = [];
 			let quizQuestions = [];
 			let quizAnswers = {};
+			let userType = null; // 'shipper' or 'consignee'
+			let invoiceFile = null;
+			let topRefinedResult = null;
 
 			// Modified displaySearchResults to show quiz button for multiple results
 			const originalDisplaySearchResults = displaySearchResults;
@@ -1446,6 +1604,19 @@
 			};
 
 			async function startRefinementQuiz() {
+				// Clear old results
+				document.getElementById("refinedResults").style.display = "none";
+				if (document.getElementById("verificationResult")) {
+					document.getElementById("verificationResult").style.display = "none";
+				}
+				document.getElementById("invoiceVerification").style.display = "none";
+
+				// Reset variables
+				userType = null;
+				invoiceFile = null;
+				topRefinedResult = null;
+				quizAnswers = {};
+
 				// Hide quiz button
 				document.getElementById("refineButtonContainer").style.display = "none";
 
@@ -1544,6 +1715,12 @@
 			}
 
 			async function submitQuizAnswers() {
+				// Check if user type is selected
+				if (!userType) {
+					alert("⚠️ Please select whether you are a shipper or consignee");
+					return;
+				}
+
 				// Check if at least ONE question is answered
 				if (Object.keys(quizAnswers).length === 0) {
 					alert(
@@ -1670,13 +1847,35 @@
 
 				document.getElementById("refinedResults").style.display = "block";
 
-				// Scroll to refined results
-				setTimeout(() => {
-					document.getElementById("refinedResults").scrollIntoView({
-						behavior: "smooth",
-						block: "start",
-					});
-				}, 100);
+				// Store top result for invoice verification
+				if (results.length > 0) {
+					topRefinedResult = results[0];
+				}
+
+				// If user is a shipper, show invoice verification
+				if (userType === "shipper" && topRefinedResult) {
+					// Hide refined results temporarily
+					document.getElementById("refinedResults").style.display = "none";
+					// Show invoice verification
+					document.getElementById("invoiceVerification").style.display =
+						"block";
+					// Scroll to invoice verification
+					setTimeout(() => {
+						document.getElementById("invoiceVerification").scrollIntoView({
+							behavior: "smooth",
+							block: "start",
+						});
+					}, 100);
+				} else {
+					// For consignees, just show results
+					// Scroll to refined results
+					setTimeout(() => {
+						document.getElementById("refinedResults").scrollIntoView({
+							behavior: "smooth",
+							block: "start",
+						});
+					}, 100);
+				}
 			}
 
 			function cancelQuiz() {
@@ -1684,6 +1883,219 @@
 				document.getElementById("refineButtonContainer").style.display =
 					"block";
 				quizAnswers = {};
+				userType = null;
+			}
+
+			function selectUserType(type, element) {
+				// Remove 'selected' class from siblings
+				const siblings = element.parentElement.querySelectorAll(".quiz-option");
+				siblings.forEach((s) => s.classList.remove("selected"));
+
+				// Add 'selected' class to clicked option
+				element.classList.add("selected");
+
+				// Store user type
+				userType = type;
+			}
+
+			function handleInvoiceSelect(event) {
+				invoiceFile = event.target.files[0];
+				if (invoiceFile) {
+					// Validate file type (ONLY images, no PDFs - Watsonx vision doesn't support PDFs)
+					const validTypes = ["image/jpeg", "image/png", "image/jpg"];
+					if (!validTypes.includes(invoiceFile.type)) {
+						alert(
+							"Please select a JPG or PNG image. PDFs are not supported by the AI vision model."
+						);
+						invoiceFile = null;
+						document.getElementById("invoiceFileInput").value = "";
+						return;
+					}
+
+					// Validate file size (10MB)
+					if (invoiceFile.size > 10 * 1024 * 1024) {
+						alert("File size must be less than 10MB");
+						return;
+					}
+
+					// Show preview for images
+					const reader = new FileReader();
+					reader.onload = function (e) {
+						document.getElementById("invoicePreview").src = e.target.result;
+						document
+							.getElementById("invoicePreviewContainer")
+							.classList.add("active");
+						document.getElementById("invoiceUploadPrompt").style.display =
+							"none";
+					};
+					reader.readAsDataURL(invoiceFile);
+				}
+			}
+
+			function clearInvoice(event) {
+				event.stopPropagation();
+				document.getElementById("invoiceFileInput").value = "";
+				invoiceFile = null;
+				document.getElementById("invoicePreview").src = "";
+				document
+					.getElementById("invoicePreviewContainer")
+					.classList.remove("active");
+				document.getElementById("invoiceUploadPrompt").style.display = "block";
+			}
+
+			async function submitInvoiceVerification() {
+				if (!invoiceFile) {
+					alert("⚠️ Please upload an invoice or click 'Skip Verification'");
+					return;
+				}
+
+				// Show loading
+				const button = event.target;
+				button.disabled = true;
+				button.textContent = "Verifying...";
+
+				try {
+					const formData = new FormData();
+					formData.append("invoice", invoiceFile);
+					formData.append("item_id", topRefinedResult.id);
+					formData.append(
+						"item_metadata",
+						JSON.stringify(topRefinedResult.metadata)
+					);
+
+					const response = await fetch("/api/verify-invoice", {
+						method: "POST",
+						body: formData,
+					});
+
+					// Check HTTP status first
+					if (!response.ok) {
+						const errorText = await response.text();
+						console.error("Server error:", errorText);
+						throw new Error(
+							`Server returned ${response.status}: ${response.statusText}`
+						);
+					}
+
+					const result = await response.json();
+
+					if (result.success) {
+						showVerificationResult(result);
+					} else {
+						alert(`❌ Error: ${result.error || "Unknown error"}`);
+					}
+				} catch (error) {
+					console.error("Invoice verification error:", error);
+					alert(`❌ ${error.message || "Failed to verify invoice"}`);
+				} finally {
+					button.disabled = false;
+					button.textContent = "Verify Invoice";
+				}
+			}
+
+			function skipInvoiceVerification() {
+				// Show refined results first
+				document.getElementById("invoiceVerification").style.display = "none";
+				document.getElementById("refinedResults").style.display = "block";
+
+				// Scroll to results
+				setTimeout(() => {
+					document.getElementById("refinedResults").scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				}, 100);
+
+				// Then show fraud warning below results
+				setTimeout(() => {
+					showVerificationResult({
+						success: true,
+						verification_skipped: true,
+						match_status: "skipped",
+						message: "Invoice verification was skipped",
+					});
+				}, 500);
+			}
+
+			function showVerificationResult(result) {
+				// Hide invoice verification section
+				document.getElementById("invoiceVerification").style.display = "none";
+
+				// Keep refined results visible
+				document.getElementById("refinedResults").style.display = "block";
+
+				// Show verification result at top of refined results
+				document.getElementById("verificationResult").style.display = "block";
+
+				// Show result
+				const verificationMessage = document.getElementById(
+					"verificationMessage"
+				);
+
+				if (result.verification_skipped) {
+					// Fraud warning for skipped verification
+					verificationMessage.innerHTML = `
+					<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--error); border-radius: 12px; padding: 1.5rem;">
+						<h4 style="color: var(--error); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+							⚠️ Verification Skipped - Potential Fraud Risk
+						</h4>
+						<p style="color: var(--text-primary); margin-bottom: 1rem;">
+							The shipper did not provide an invoice for verification. This could indicate potential fraud.
+						</p>
+						<p style="color: var(--text-secondary); font-size: 0.9rem;">
+							<strong>Recommendation:</strong> Contact the shipper to request invoice documentation before proceeding with this shipment.
+						</p>
+					</div>
+				`;
+				} else if (result.match_status === "match") {
+					// Invoice matches - good!
+					verificationMessage.innerHTML = `
+					<div style="background: rgba(16, 185, 129, 0.1); border: 2px solid var(--success); border-radius: 12px; padding: 1.5rem;">
+						<h4 style="color: var(--success); margin-bottom: 1rem;">
+							✓ Invoice Verified - Likely Legitimate
+						</h4>
+						<p style="color: var(--text-primary); margin-bottom: 1rem;">
+							The invoice matches the top result item. This shipment appears to be legitimate.
+						</p>
+						<p style="color: var(--text-secondary); font-size: 0.9rem;">
+							<strong>Match confidence:</strong> ${result.confidence || "High"}
+						</p>
+					</div>
+				`;
+				} else {
+					// Invoice doesn't match - potential fraud
+					verificationMessage.innerHTML = `
+					<div style="background: rgba(245, 158, 11, 0.1); border: 2px solid var(--warning); border-radius: 12px; padding: 1.5rem;">
+						<h4 style="color: var(--warning); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+							⚠️ Invoice Mismatch - Possible Fraud
+						</h4>
+						<p style="color: var(--text-primary); margin-bottom: 1rem;">
+							The invoice does not match the top result item. This could indicate potential fraud, though it may also be due to search inaccuracy.
+						</p>
+						<p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">
+							<strong>Detected discrepancies:</strong>
+						</p>
+						<ul style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 1.5rem;">
+							${
+								result.discrepancies
+									? result.discrepancies.map((d) => `<li>${d}</li>`).join("")
+									: "<li>Multiple fields do not match</li>"
+							}
+						</ul>
+						<p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 1rem;">
+							<strong>Recommendation:</strong> Review this shipment carefully and contact the shipper for clarification.
+						</p>
+					</div>
+				`;
+				}
+
+				// Scroll to refined results (which now has verification at top)
+				setTimeout(() => {
+					document.getElementById("refinedResults").scrollIntoView({
+						behavior: "smooth",
+						block: "start",
+					});
+				}, 100);
 			}
 		</script>
 	</body>

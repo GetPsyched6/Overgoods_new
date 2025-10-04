@@ -44,6 +44,21 @@ class SimpleWatsonxClient:
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode("utf-8")
 
+    def get_image_mime_type(self, image_path: str) -> str:
+        """Detect image MIME type from file extension"""
+        import os
+
+        ext = os.path.splitext(image_path)[1].lower()
+        mime_types = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+            ".pdf": "application/pdf",
+        }
+        return mime_types.get(ext, "image/jpeg")
+
     def _parse_multiple_objects_fallback(self, text: str) -> Optional[Dict[str, Any]]:
         """Parse markdown/text formatted multiple objects response as fallback"""
         try:
@@ -1326,4 +1341,175 @@ Begin your response with {{ now:"""
 
         except Exception as e:
             print(f"Error generating refinement questions: {e}")
+            return {"success": False, "error": str(e)}
+
+    def extract_invoice_data(self, invoice_path: str) -> Dict[str, Any]:
+        """Extract structured data from invoice image"""
+        try:
+            # Get access token
+            access_token = self.get_access_token()
+
+            # Encode image with correct MIME type
+            image_base64 = self.encode_image(invoice_path)
+            mime_type = self.get_image_mime_type(invoice_path)
+            print(f"Image MIME type: {mime_type}")
+
+            # Prompt to extract invoice data
+            prompt = """CRITICAL FORMAT RULE: Your response must be PURE JSON starting with { and ending with }. No markdown code blocks, no "Answer:", no "JSON Output:", no text before or after the JSON. Output ONLY the JSON object.
+
+You are analyzing an invoice image. Extract ALL relevant product information from this invoice.
+
+IMPORTANT: Extract EXACTLY what you see on the invoice. Don't infer or guess.
+
+Schema:
+
+{
+  "item_description": "Full item description from invoice",
+  "brand": "Brand name (or null if not visible)",
+  "model": "Model name/number (or null if not visible)",
+  "color": "Color (or null if not visible)",
+  "material": "Material (or null if not visible)",
+  "condition": "Condition (new/used/refurbished, or null if not stated)",
+  "category": "Item category (electronics, furniture, etc.)",
+  "quantity": "Quantity",
+  "confidence": "high/medium/low - how clear is the invoice text?"
+}
+
+RULES:
+- Extract ONLY what's explicitly stated on the invoice
+- If a field is not visible/mentioned, use null
+- For condition: only set if explicitly stated (e.g., "New", "Used", "Refurbished")
+- Be precise with brand and model names
+
+Begin your response with { now:"""
+
+            # Prepare API request
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+
+            payload = {
+                "model_id": "meta-llama/llama-3-2-90b-vision-instruct",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{image_base64}"
+                                },
+                            },
+                        ],
+                    }
+                ],
+                "parameters": {
+                    "decoding_method": "greedy",
+                    "max_new_tokens": 1000,
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                },
+                "project_id": self.project_id,
+            }
+
+            api_url = f"{self.url}/ml/v1/text/chat?version=2023-05-29"
+
+            response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+
+            # Handle token expiration
+            if response.status_code == 401:
+                print("Token expired, refreshing...")
+                access_token = self.get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {access_token}"
+                response = requests.post(
+                    api_url, headers=headers, json=payload, timeout=60
+                )
+
+            if response.status_code == 200:
+                result = response.json()
+                generated_text = (
+                    result["choices"][0]["message"]["content"]
+                    if "choices" in result
+                    else result.get("results", [{}])[0].get("generated_text", "")
+                )
+
+                print(f"\nInvoice API Response Status: {response.status_code}")
+                print(f"Generated invoice data: {generated_text[:200]}...")
+
+                # Parse JSON response
+                try:
+                    json_str = generated_text.strip()
+
+                    # Strip markdown code blocks
+                    if "```" in json_str:
+                        code_block_match = re.search(
+                            r"```(?:json)?\s*\n?(.*?)\n?```", json_str, re.DOTALL
+                        )
+                        if code_block_match:
+                            json_str = code_block_match.group(1).strip()
+
+                    # Extract JSON if wrapped in text
+                    if not json_str.startswith("{"):
+                        start_idx = json_str.find("{")
+                        if start_idx != -1:
+                            json_str = json_str[start_idx:]
+
+                    if not json_str.endswith("}"):
+                        end_idx = json_str.rfind("}") + 1
+                        if end_idx > 0:
+                            json_str = json_str[:end_idx]
+
+                    # Unescape JSON
+                    if "\\{" in json_str or "\\}" in json_str:
+                        json_str = (
+                            json_str.replace("\\{", "{")
+                            .replace("\\}", "}")
+                            .replace("\\[", "[")
+                            .replace("\\]", "]")
+                            .replace('\\"', '"')
+                        )
+
+                    if json_str.startswith("{") and json_str.endswith("}"):
+                        parsed_result = json.loads(json_str)
+                        print("✓ Invoice data extracted successfully")
+                        return {"success": True, "data": parsed_result}
+                    else:
+                        raise ValueError("Response is not valid JSON")
+
+                except (json.JSONDecodeError, ValueError) as e:
+                    print(f"JSON parsing failed for invoice: {e}")
+                    return {
+                        "success": False,
+                        "error": "Failed to parse invoice data",
+                        "raw_response": generated_text,
+                    }
+            else:
+                error_body = response.text
+                print(f"❌ API call failed with status {response.status_code}")
+                print(f"Response body: {error_body[:500]}")
+
+                # More user-friendly error message
+                if response.status_code == 500:
+                    error_msg = "Watsonx AI service is temporarily unavailable (IBM server error). Please try again in a moment."
+                elif response.status_code == 429:
+                    error_msg = (
+                        "Rate limit exceeded. Please wait a moment and try again."
+                    )
+                else:
+                    error_msg = f"AI service returned error {response.status_code}"
+
+                return {
+                    "success": False,
+                    "error": error_msg,
+                    "raw_response": error_body,
+                }
+
+        except Exception as e:
+            print(f"❌ Error extracting invoice data: {e}")
+            import traceback
+
+            traceback.print_exc()
             return {"success": False, "error": str(e)}
