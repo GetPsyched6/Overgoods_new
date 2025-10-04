@@ -1,0 +1,94 @@
+INFO:     Started server process [5443]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+✅ Loaded 17 items from cache
+✅ Loaded 17 items from cache
+🔄 Reloaded database: 17 → 17 items
+INFO:     127.0.0.1:61246 - "POST /api/reload-database HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61365 - "GET /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61365 - "GET /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61365 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+Using a slow image processor as `use_fast` is unset and a slow processor was saved with this model. `use_fast=True` will be the default behavior in v4.52, even if the model was saved with a slow processor. This will result in minor differences in outputs. You'll still be able to use a slow processor with `use_fast=False`.
+🔄 Loading CLIP model: clip-ViT-B-32...
+🖥️  Using device: cpu
+✅ CLIP model loaded successfully!
+🎯 CLIP image search completed: 5 results
+INFO:     127.0.0.1:61378 - "POST /api/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61378 - "GET /assets/13.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61380 - "GET /assets/12.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61381 - "GET /assets/14.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61378 - "GET /assets/15.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61381 - "GET /assets/7.png HTTP/1.1" 200 OK
+Processing natural language query: cable
+Processed query: Based on the user's search query "cable", I've generated a focused search description:
+
+"Search for ...
+Natural language search: 'cable' -> 'Based on the user's search query "cable", I've generated a focused search description:
+
+"Search for ...'
+INFO:     127.0.0.1:61395 - "POST /api/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61395 - "GET /assets/10.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61395 - "GET /assets/6.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61398 - "GET /assets/1.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61398 - "GET /assets/9.jpg HTTP/1.1" 200 OK
+🔄 Reloaded database: 17 → 17 items
+INFO:     127.0.0.1:61994 - "POST /api/reload-database HTTP/1.1" 200 OK
+Processing natural language query: cable
+Processed query: Based on the user's search query "cable", I've identified the following key elements:
+
+* Item type/c...
+Natural language search: 'cable' -> 'Based on the user's search query "cable", I've identified the following key elements:
+
+* Item type/c...'
+INFO:     127.0.0.1:62034 - "POST /api/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62084 - "POST /api/search HTTP/1.1" 200 OK
+🔄 Reloaded database: 17 → 17 items
+INFO:     127.0.0.1:62178 - "POST /api/reload-database HTTP/1.1" 200 OK
+Processing natural language query: cable
+Processed query: Based on the user's search query "cable", the focused search description is:
+
+"Searching for cables,...
+Natural language search: 'cable' -> 'Based on the user's search query "cable", the focused search description is:
+
+"Searching for cables,...'
+INFO:     127.0.0.1:62180 - "POST /api/search HTTP/1.1" 200 OK
+🔄 Reloaded database: 17 → 17 items
+INFO:     127.0.0.1:62324 - "POST /api/reload-database HTTP/1.1" 200 OK
+Processing natural language query: cable
+Processed query: Based on the search query "cable", the focused search description is:
+
+"Searching for electrical cab...
+Natural language search: 'cable' -> 'Based on the search query "cable", the focused search description is:
+
+"Searching for electrical cab...'
+INFO:     127.0.0.1:62326 - "POST /api/search HTTP/1.1" 200 OK
+Processing natural language query: cable
+Processed query: Based on the user's search query "cable", the focused search description would be:
+
+"Search for elec...
+Natural language search: 'cable' -> 'Based on the user's search query "cable", the focused search description would be:
+
+"Search for elec...'
+INFO:     127.0.0.1:62568 - "POST /api/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /favicon.ico HTTP/1.1" 404 Not Found
+Processing natural language query: cable
+Processed query: Search Description: 
+"Cable" - searching for electronic cables, possibly including power cables, HDM...
+Natural language search: 'cable' -> 'Search Description: 
+"Cable" - searching for electronic cables, possibly including power cables, HDM...'
+INFO:     127.0.0.1:62722 - "POST /api/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /assets/15.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62731 - "GET /assets/6.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /assets/13.jpg HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /assets/12.png HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62731 - "GET /assets/14.jpg HTTP/1.1" 200 OK
+🔄 Reloaded database: 17 → 17 items
+INFO:     127.0.0.1:62722 - "POST /api/reload-database HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /search HTTP/1.1" 200 OK
+Processing natural language query: cable
+Processed query: Based on the user's search query "cable", I've converted it into a more specific search description ...
+Natural language search: 'cable' -> 'Based on the user's search query "cable", I've converted it into a more specific search description ...'
+INFO:     127.0.0.1:62722 - "POST /api/search HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62722 - "GET /assets/10.jpg HTTP/1.1" 200 OK
