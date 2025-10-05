@@ -320,6 +320,7 @@ Begin your response with { now:"""
                                 "success": True,
                                 "data": fallback_result,
                                 "raw_response": generated_text,
+                                "parsing_warning": "AI returned non-JSON format for multiple objects check. Fallback parsing was used.",
                             }
                         return {
                             "success": False,
@@ -339,6 +340,7 @@ Begin your response with { now:"""
                             "success": True,
                             "data": fallback_result,
                             "raw_response": generated_text,
+                            "parsing_warning": "AI returned non-JSON format for multiple objects check. Fallback parsing was used.",
                         }
                     return {
                         "success": False,
@@ -655,6 +657,7 @@ Begin your response with { now:"""
                                 "success": True,
                                 "data": fallback_data,
                                 "raw_response": generated_text,
+                                "parsing_warning": "AI returned non-JSON format. Fallback extraction was used.",
                             }
                         else:
                             return {
@@ -675,6 +678,7 @@ Begin your response with { now:"""
                             "success": True,
                             "data": fallback_data,
                             "raw_response": generated_text,
+                            "parsing_warning": "AI returned non-JSON format. Fallback extraction was used.",
                         }
                     else:
                         return {

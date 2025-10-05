@@ -128,6 +128,7 @@ async def check_multiple_objects(file: UploadFile = File(...)):
                 content={
                     "success": True,
                     "data": multiple_check["data"],
+                    "parsing_warning": multiple_check.get("parsing_warning"),
                 }
             )
         else:
@@ -178,6 +179,7 @@ async def generate_description(
                     "success": True,
                     "data": result["data"],
                     "raw_response": result.get("raw_response", ""),
+                    "parsing_warning": result.get("parsing_warning"),
                 }
             )
         else:
