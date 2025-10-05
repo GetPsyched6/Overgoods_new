@@ -198,7 +198,8 @@ Schema:
   "brief_description": "brief description of main item(s)"
 }
 
-Begin your response with { now:"""
+Begin your response with { now:
+{"""
 
             # Prepare the API request headers
             headers = {
@@ -438,7 +439,8 @@ CRITICAL OUTPUT REQUIREMENTS:
 - Do NOT add explanatory text before or after the JSON
 - Output ONLY the raw JSON object - nothing else
 
-Begin your response with {{ now:"""
+Begin your response with {{ now:
+{{"""
             else:
                 # Single object prompt (original)
                 prompt = """CRITICAL FORMAT RULE: Your response must be PURE JSON starting with { and ending with }. No markdown code blocks, no "Answer:", no "JSON Output:", no text before or after the JSON. Output ONLY the JSON object.
@@ -524,7 +526,8 @@ CRITICAL OUTPUT REQUIREMENTS:
 - Do NOT add explanatory text before or after the JSON
 - Output ONLY the raw JSON object - nothing else
 
-Begin your response with { now:"""
+Begin your response with { now:
+{"""
 
             # Prepare the API request headers
             headers = {
@@ -592,12 +595,23 @@ Begin your response with { now:"""
                         "generated_text", ""
                     )
 
-                print(f"Generated text: {generated_text[:200]}...")
+                print(f"Generated text (first 200 chars): {generated_text[:200]}...")
+                print(f"Generated text (last 100 chars): ...{generated_text[-100:]}")
+                print(f"Total response length: {len(generated_text)} characters")
+
+                # DEBUG: Print FULL response to see if it's complete
+                if len(generated_text) < 2000:  # Only print if reasonably sized
+                    print(f"\n===== FULL AI RESPONSE =====")
+                    print(generated_text)
+                    print(f"===== END OF RESPONSE =====\n")
 
                 # Try to parse JSON from the response
                 try:
                     # Strip markdown code blocks if present (```json ... ``` or ``` ... ```)
                     json_str = generated_text.strip()
+                    print(
+                        f"After .strip(): length={len(json_str)}, last char='{json_str[-1]}' (ASCII {ord(json_str[-1])})"
+                    )
 
                     # Handle markdown code blocks: ```json\n{...}\n``` or ```\n{...}\n```
                     if "```" in json_str:
@@ -614,13 +628,68 @@ Begin your response with { now:"""
                     if not json_str.startswith("{"):
                         start_idx = json_str.find("{")
                         if start_idx != -1:
+                            print(
+                                f"  Trimming start - found '{{' at position {start_idx}"
+                            )
                             json_str = json_str[start_idx:]
 
                     # If it has text after JSON, extract just the JSON part
+                    # We need to find the MATCHING closing brace, not just use rfind()
+                    original_len = len(json_str)
                     if not json_str.endswith("}"):
-                        end_idx = json_str.rfind("}") + 1
+                        last_char = json_str[-1]
+                        print(
+                            f"  ⚠️  JSON doesn't end with '}}' - last char: '{last_char}' (ASCII: {ord(last_char)})"
+                        )
+                        print(f"  Last 40 chars: ...{repr(json_str[-40:])}")
+
+                        # Find the matching closing brace by counting nesting levels
+                        brace_count = 0
+                        end_idx = -1
+                        for i, char in enumerate(json_str):
+                            if char == "{":
+                                brace_count += 1
+                            elif char == "}":
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    # Found the matching closing brace for the first opening brace
+                                    end_idx = i + 1
+                                    break
+
                         if end_idx > 0:
+                            print(
+                                f"  ✓ Found MATCHING '}}' at position: {end_idx - 1} (will cut to length {end_idx})"
+                            )
                             json_str = json_str[:end_idx]
+                            print(
+                                f"  ✂️  CUT OFF {original_len - len(json_str)} chars! ({original_len} → {len(json_str)})"
+                            )
+                            print(
+                                f"  After trim, last 40 chars: ...{repr(json_str[-40:])}"
+                            )
+                        else:
+                            # FALLBACK #69: The { trick causes AI to omit the final }
+                            # If we have opening brace but no closing, just add it!
+                            print(f"  ⚠️  Could not find matching closing brace")
+                            print(
+                                f"  🔧 FALLBACK #69: Attempting to complete JSON by adding missing '}}' "
+                            )
+
+                            # Count how many braces are unmatched
+                            open_count = json_str.count("{")
+                            close_count = json_str.count("}")
+                            missing_braces = open_count - close_count
+
+                            if missing_braces > 0:
+                                print(
+                                    f"  Missing {missing_braces} closing brace(s), adding them..."
+                                )
+                                json_str = json_str + ("}" * missing_braces)
+                                print(
+                                    f"  ✓ Completed JSON! New last 40 chars: ...{repr(json_str[-40:])}"
+                                )
+                            else:
+                                print(f"  ❌ Brace count mismatch - cannot auto-fix")
 
                     # CRITICAL: Unescape JSON BEFORE checking if it's valid
                     # The API sometimes returns escaped JSON like \{ instead of {
@@ -636,6 +705,11 @@ Begin your response with { now:"""
                         json_str = json_str.replace('\\"', '"')  # Unescape quotes too
 
                     if json_str.startswith("{") and json_str.endswith("}"):
+                        print(
+                            f"✓ JSON validation passed - attempting parse (length: {len(json_str)} chars)"
+                        )
+                        print(f"  First 100 chars: {json_str[:100]}")
+                        print(f"  Last 100 chars: {json_str[-100:]}")
                         parsed_result = json.loads(json_str)
 
                         return {
@@ -645,9 +719,12 @@ Begin your response with { now:"""
                         }
                     else:
                         # FALLBACK: Try to extract data from non-JSON formats
-                        print(
-                            f"No JSON delimiters found, attempting fallback extraction..."
-                        )
+                        print(f"✗ JSON validation failed!")
+                        print(f"  Starts with '{{': {json_str.startswith('{')}")
+                        print(f"  Ends with '}}': {json_str.endswith('}')}")
+                        print(f"  First 50 chars: {json_str[:50]}")
+                        print(f"  Last 50 chars: {json_str[-50:]}")
+                        print(f"Attempting fallback extraction...")
                         fallback_data = self._extract_fallback_data(
                             generated_text, multiple_objects_data
                         )
@@ -668,7 +745,11 @@ Begin your response with { now:"""
 
                 except json.JSONDecodeError as e:
                     # FALLBACK: Try to extract data from bullet points or other formats
-                    print(f"JSON parsing failed, attempting fallback extraction...")
+                    print(f"✗ JSON parsing failed: {str(e)}")
+                    print(
+                        f"  Error at position: {e.pos if hasattr(e, 'pos') else 'unknown'}"
+                    )
+                    print(f"  Attempting fallback extraction...")
                     fallback_data = self._extract_fallback_data(
                         generated_text, multiple_objects_data
                     )
@@ -1248,7 +1329,8 @@ Schema:
 
 Generate {min(len(discriminators), 5)} questions maximum. Keep question text under 50 characters.
 
-Begin your response with {{ now:"""
+Begin your response with {{ now:
+{{"""
 
             # Prepare API request
             headers = {
@@ -1385,7 +1467,8 @@ RULES:
 - For condition: only set if explicitly stated (e.g., "New", "Used", "Refurbished")
 - Be precise with brand and model names
 
-Begin your response with { now:"""
+Begin your response with { now:
+{"""
 
             # Prepare API request
             headers = {
