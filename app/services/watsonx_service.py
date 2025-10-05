@@ -1600,3 +1600,260 @@ Begin your response with { now:
 
             traceback.print_exc()
             return {"success": False, "error": str(e)}
+
+    def verify_invoice_against_item(
+        self, invoice_path: str, item_description: str, item_metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Ask AI to verify if invoice matches the product description (holistic judgment)"""
+        try:
+            # Get access token
+            access_token = self.get_access_token()
+
+            # Encode invoice image
+            image_base64 = self.encode_image(invoice_path)
+            mime_type = self.get_image_mime_type(invoice_path)
+
+            # Build item info for comparison
+            item_info = f"""
+Item Description: {item_description}
+Brand: {item_metadata.get('brand', 'Not identified')}
+Model: {item_metadata.get('model', 'Not identified')}
+Color: {item_metadata.get('color', 'Unknown')}
+Material: {item_metadata.get('material', 'Unknown')}
+Condition: {item_metadata.get('condition', 'Unknown')}
+Category: {item_metadata.get('category', 'Unknown')}
+"""
+
+            # Prompt for holistic verification
+            prompt = f"""CRITICAL FORMAT RULE: Your response must be PURE JSON starting with {{ and ending with }}. No markdown, no text before/after.
+
+You are analyzing documents for a warehouse inventory system. Compare this invoice/document image against the following product information:
+
+{item_info}
+
+**YOUR TASK:**
+Determine if this document LIKELY corresponds to the product described above. Consider:
+- Variations in naming (e.g., "Xbox Controller" vs "Microsoft Wireless Controller")
+- Similar but not exact descriptions
+- Context clues (packaging, branding, visual appearance)
+- Be LENIENT - products can be described differently on documents vs retail descriptions
+
+**IMPORTANT:**
+- If the document clearly shows a DIFFERENT product type, that's a mismatch
+- If details are similar or compatible, that's likely a match
+- If you're uncertain due to missing information, err on the side of "possible match"
+
+Return this exact JSON format (example with actual boolean):
+
+{{
+  "matches": true,
+  "confidence": "high",
+  "reasoning": "Brief explanation of why they match or don't match",
+  "invoice_product": "What product is shown on the document",
+  "key_discrepancies": []
+}}
+
+FIELD REQUIREMENTS: 
+- "matches" must be boolean true or false (no quotes)
+- "confidence" must be string "high", "medium", or "low"
+- "key_discrepancies" must be array, use [] if none
+
+Begin your response with {{ now:
+{{"""
+
+            # API request
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+
+            payload = {
+                "model_id": "meta-llama/llama-3-2-90b-vision-instruct",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{mime_type};base64,{image_base64}"
+                                },
+                            },
+                        ],
+                    }
+                ],
+                "parameters": {
+                    "decoding_method": "greedy",
+                    "max_new_tokens": 500,
+                    "temperature": 0.1,
+                    "top_p": 0.9,
+                },
+                "project_id": self.project_id,
+            }
+
+            api_url = f"{self.url}/ml/v1/text/chat?version=2023-05-29"
+
+            print(f"\n🔍 Asking AI to verify invoice against item...")
+            response = requests.post(api_url, headers=headers, json=payload, timeout=60)
+
+            # Handle token expiration
+            if response.status_code == 401:
+                print("Token expired, refreshing...")
+                access_token = self.get_access_token(force_refresh=True)
+                headers["Authorization"] = f"Bearer {access_token}"
+                response = requests.post(
+                    api_url, headers=headers, json=payload, timeout=60
+                )
+
+            if response.status_code == 200:
+                result = response.json()
+                generated_text = (
+                    result["choices"][0]["message"]["content"]
+                    if "choices" in result
+                    else result.get("results", [{}])[0].get("generated_text", "")
+                )
+
+                print(f"AI verification response: {generated_text[:200]}...")
+
+                # Parse JSON response (using our ROBUST parsing with Fallback #69!)
+                try:
+                    json_str = generated_text.strip()
+                    print(
+                        f"After .strip(): length={len(json_str)}, last char='{json_str[-1]}' (ASCII {ord(json_str[-1])})"
+                    )
+
+                    # Track if we used fallback parsing
+                    used_fallback = False
+
+                    # Handle markdown code blocks
+                    if "```" in json_str:
+                        code_block_match = re.search(
+                            r"```(?:json)?\s*\n?(.*?)\n?```", json_str, re.DOTALL
+                        )
+                        if code_block_match:
+                            json_str = code_block_match.group(1).strip()
+                            print(f"Extracted JSON from markdown code block")
+                            used_fallback = True
+
+                    # If it starts with text before JSON, extract just the JSON part
+                    if not json_str.startswith("{"):
+                        start_idx = json_str.find("{")
+                        if start_idx != -1:
+                            print(
+                                f"  Trimming start - found '{{' at position {start_idx}"
+                            )
+                            json_str = json_str[start_idx:]
+
+                    # If it has text after JSON, extract just the JSON part
+                    # We need to find the MATCHING closing brace, not just use rfind()
+                    original_len = len(json_str)
+                    if not json_str.endswith("}"):
+                        last_char = json_str[-1]
+                        print(
+                            f"  ⚠️  JSON doesn't end with '}}' - last char: '{last_char}' (ASCII: {ord(last_char)})"
+                        )
+                        print(f"  Last 40 chars: ...{repr(json_str[-40:])}")
+
+                        # Find the matching closing brace by counting nesting levels
+                        brace_count = 0
+                        end_idx = -1
+                        for i, char in enumerate(json_str):
+                            if char == "{":
+                                brace_count += 1
+                            elif char == "}":
+                                brace_count -= 1
+                                if brace_count == 0:
+                                    # Found the matching closing brace for the first opening brace
+                                    end_idx = i + 1
+                                    break
+
+                        if end_idx > 0:
+                            print(
+                                f"  ✓ Found MATCHING '}}' at position: {end_idx - 1} (will cut to length {end_idx})"
+                            )
+                            json_str = json_str[:end_idx]
+                            print(
+                                f"  ✂️  CUT OFF {original_len - len(json_str)} chars! ({original_len} → {len(json_str)})"
+                            )
+                            print(
+                                f"  After trim, last 40 chars: ...{repr(json_str[-40:])}"
+                            )
+                        else:
+                            # FALLBACK #69: The { trick causes AI to omit the final }
+                            print(f"  ⚠️  Could not find matching closing brace")
+                            print(
+                                f"  🔧 FALLBACK #69: Attempting to complete JSON by adding missing '}}' "
+                            )
+
+                            # Count how many braces are unmatched
+                            open_count = json_str.count("{")
+                            close_count = json_str.count("}")
+                            missing_braces = open_count - close_count
+
+                            if missing_braces > 0:
+                                print(
+                                    f"  Missing {missing_braces} closing brace(s), adding them..."
+                                )
+                                json_str = json_str + ("}" * missing_braces)
+                                print(
+                                    f"  ✓ Completed JSON! New last 40 chars: ...{repr(json_str[-40:])}"
+                                )
+                            else:
+                                print(f"  ❌ Brace count mismatch - cannot auto-fix")
+
+                    # CRITICAL: Unescape JSON BEFORE checking if it's valid
+                    if (
+                        "\\{" in json_str
+                        or "\\}" in json_str
+                        or "\\[" in json_str
+                        or "\\]" in json_str
+                    ):
+                        print("Detected escaped JSON, unescaping...")
+                        json_str = json_str.replace("\\{", "{").replace("\\}", "}")
+                        json_str = json_str.replace("\\[", "[").replace("\\]", "]")
+                        json_str = json_str.replace('\\"', '"')
+
+                    if json_str.startswith("{") and json_str.endswith("}"):
+                        print(
+                            f"✓ JSON validation passed - attempting parse (length: {len(json_str)} chars)"
+                        )
+                        parsed_result = json.loads(json_str)
+                        print(
+                            f"✓ AI says: matches={parsed_result.get('matches')}, confidence={parsed_result.get('confidence')}"
+                        )
+                        result = {"success": True, "verification": parsed_result}
+                        if used_fallback:
+                            result["parsing_warning"] = (
+                                "AI returned non-JSON format. Fallback parsing was used."
+                            )
+                        return result
+                    else:
+                        print(f"✗ JSON validation failed!")
+                        print(f"  Starts with '{{': {json_str.startswith('{')}")
+                        print(f"  Ends with '}}': {json_str.endswith('}')}")
+                        print(f"  First 50 chars: {json_str[:50]}")
+                        print(f"  Last 50 chars: {json_str[-50:]}")
+                        raise ValueError("Response is not valid JSON")
+
+                except (json.JSONDecodeError, ValueError) as e:
+                    print(f"✗ JSON parsing failed: {str(e)}")
+                    print(
+                        f"  Error at position: {e.pos if hasattr(e, 'pos') else 'unknown'}"
+                    )
+                    return {
+                        "success": False,
+                        "error": "Failed to parse verification response",
+                        "raw_response": generated_text,
+                    }
+            else:
+                error_msg = f"AI service returned error {response.status_code}"
+                return {"success": False, "error": error_msg}
+
+        except Exception as e:
+            print(f"❌ Error verifying invoice: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return {"success": False, "error": str(e)}

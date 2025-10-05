@@ -1003,7 +1003,10 @@
 			<!-- Refined Results Section -->
 			<div id="refinedResults" class="results-container" style="display: none">
 				<!-- Verification Result at top -->
-				<div id="verificationResult" style="display: none; margin-bottom: 2rem">
+				<div
+					id="verificationResult"
+					style="display: none; margin-top: 2rem; margin-bottom: 2rem"
+				>
 					<div id="verificationMessage"></div>
 				</div>
 
@@ -1096,7 +1099,8 @@
 
 				<div style="display: flex; gap: 1rem">
 					<button
-						onclick="submitInvoiceVerification()"
+						id="verifyInvoiceBtn"
+						onclick="submitInvoiceVerification(event)"
 						style="
 							flex: 1;
 							background: var(--success);
@@ -1943,7 +1947,7 @@
 				document.getElementById("invoiceUploadPrompt").style.display = "block";
 			}
 
-			async function submitInvoiceVerification() {
+			async function submitInvoiceVerification(event) {
 				if (!invoiceFile) {
 					alert("⚠️ Please upload an invoice or click 'Skip Verification'");
 					return;
@@ -2032,61 +2036,107 @@
 					"verificationMessage"
 				);
 
+				// Add parsing warning box if present
+				let parsingWarningHTML = "";
+				if (result.parsing_warning) {
+					parsingWarningHTML = `
+					<div style="background: rgba(245, 158, 11, 0.1); border: 2px solid var(--warning); border-radius: 12px; padding: 1rem; margin-bottom: 1rem;">
+						<p style="color: var(--warning); margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+							<span>⚠️</span>
+							<strong>Warning:</strong> AI response parsing issue - ${result.parsing_warning}
+						</p>
+						<p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0.5rem 0 0 0;">
+							The verification result may be less reliable. Manual review is recommended.
+						</p>
+					</div>
+				`;
+				}
+
 				if (result.verification_skipped) {
 					// Fraud warning for skipped verification
-					verificationMessage.innerHTML = `
-					<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--error); border-radius: 12px; padding: 1.5rem;">
-						<h4 style="color: var(--error); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-							⚠️ Verification Skipped - Potential Fraud Risk
-						</h4>
-						<p style="color: var(--text-primary); margin-bottom: 1rem;">
-							The shipper did not provide an invoice for verification. This could indicate potential fraud.
-						</p>
-						<p style="color: var(--text-secondary); font-size: 0.9rem;">
-							<strong>Recommendation:</strong> Contact the shipper to request invoice documentation before proceeding with this shipment.
-						</p>
-					</div>
-				`;
+					verificationMessage.innerHTML =
+						parsingWarningHTML +
+						`
+				<div style="background: rgba(239, 68, 68, 0.1); border: 2px solid var(--error); border-radius: 12px; padding: 1.5rem;">
+					<h4 style="color: var(--error); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+						⚠️ Verification Skipped - Potential Fraud Risk
+					</h4>
+					<p style="color: var(--text-primary); margin-bottom: 1rem;">
+						The shipper did not provide an invoice for verification. This could indicate potential fraud.
+					</p>
+					<p style="color: var(--text-secondary); font-size: 0.9rem;">
+						<strong>Recommendation:</strong> Contact the shipper to request invoice documentation before proceeding with this shipment.
+					</p>
+				</div>
+			`;
 				} else if (result.match_status === "match") {
 					// Invoice matches - good!
-					verificationMessage.innerHTML = `
-					<div style="background: rgba(16, 185, 129, 0.1); border: 2px solid var(--success); border-radius: 12px; padding: 1.5rem;">
-						<h4 style="color: var(--success); margin-bottom: 1rem;">
-							✓ Invoice Verified - Likely Legitimate
-						</h4>
-						<p style="color: var(--text-primary); margin-bottom: 1rem;">
-							The invoice matches the top result item. This shipment appears to be legitimate.
-						</p>
-						<p style="color: var(--text-secondary); font-size: 0.9rem;">
-							<strong>Match confidence:</strong> ${result.confidence || "High"}
-						</p>
-					</div>
-				`;
+					verificationMessage.innerHTML =
+						parsingWarningHTML +
+						`
+			<div style="background: rgba(16, 185, 129, 0.1); border: 2px solid var(--success); border-radius: 12px; padding: 1.5rem;">
+				<h4 style="color: var(--success); margin-bottom: 1rem;">
+					✓ Invoice Verified - Likely Legitimate
+				</h4>
+				<p style="color: var(--text-primary); margin-bottom: 1rem;">
+					${
+						result.reasoning ||
+						"The invoice matches the top result item. This shipment appears to be legitimate."
+					}
+				</p>
+				<p style="color: var(--text-secondary); font-size: 0.9rem;">
+					<strong>Match confidence:</strong> ${result.confidence || "High"} | 
+					<strong>Invoice product:</strong> ${result.invoice_product || "N/A"}
+				</p>
+			</div>
+		`;
 				} else {
-					// Invoice doesn't match - potential fraud
-					verificationMessage.innerHTML = `
-					<div style="background: rgba(245, 158, 11, 0.1); border: 2px solid var(--warning); border-radius: 12px; padding: 1.5rem;">
-						<h4 style="color: var(--warning); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-							⚠️ Invoice Mismatch - Possible Fraud
-						</h4>
-						<p style="color: var(--text-primary); margin-bottom: 1rem;">
-							The invoice does not match the top result item. This could indicate potential fraud, though it may also be due to search inaccuracy.
-						</p>
-						<p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">
-							<strong>Detected discrepancies:</strong>
-						</p>
-						<ul style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 1.5rem;">
-							${
-								result.discrepancies
-									? result.discrepancies.map((d) => `<li>${d}</li>`).join("")
-									: "<li>Multiple fields do not match</li>"
-							}
-						</ul>
-						<p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 1rem;">
-							<strong>Recommendation:</strong> Review this shipment carefully and contact the shipper for clarification.
-						</p>
-					</div>
-				`;
+					// Invoice doesn't match - potential fraud (but lenient as requested)
+					const warningLevel =
+						result.match_status === "partial"
+							? "Uncertain Match"
+							: "Mismatch Detected";
+					const warningColor =
+						result.match_status === "partial"
+							? "var(--warning)"
+							: "var(--error)";
+					const warningBg =
+						result.match_status === "partial"
+							? "rgba(245, 158, 11, 0.1)"
+							: "rgba(239, 68, 68, 0.1)";
+
+					verificationMessage.innerHTML =
+						parsingWarningHTML +
+						`
+			<div style="background: ${warningBg}; border: 2px solid ${warningColor}; border-radius: 12px; padding: 1.5rem;">
+				<h4 style="color: ${warningColor}; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+					⚠️ ${warningLevel} - Review Recommended
+				</h4>
+				<p style="color: var(--text-primary); margin-bottom: 1rem;">
+					${result.reasoning || "The invoice does not clearly match the top result item."}
+				</p>
+				${
+					result.discrepancies && result.discrepancies.length > 0
+						? `
+					<p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem;">
+						<strong>Key differences noted:</strong>
+					</p>
+					<ul style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 1.5rem; margin-bottom: 1rem;">
+						${result.discrepancies.map((d) => `<li>${d}</li>`).join("")}
+					</ul>
+				`
+						: ""
+				}
+				<p style="color: var(--text-secondary); font-size: 0.9rem;">
+					<strong>Note:</strong> This mismatch could be due to ${
+						result.confidence === "Very Low" ? "search refinement issues. " : ""
+					}invoice discrepancies or different product naming conventions.
+				</p>
+				<p style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.5rem;">
+					<strong>Invoice product:</strong> ${result.invoice_product || "Unknown"}
+				</p>
+			</div>
+		`;
 				}
 
 				// Scroll to refined results (which now has verification at top)

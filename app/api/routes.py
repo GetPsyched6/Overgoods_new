@@ -516,90 +516,79 @@ async def verify_invoice(
             invoice_path = temp_file.name
 
         try:
-            # Extract invoice data using Watsonx
-            print(f"Extracting invoice data from: {invoice_path}")
+            # STEP 1: Extract invoice data (for display purposes)
+            print(f"Step 1: Extracting invoice data from: {invoice_path}")
             invoice_result = watsonx_client.extract_invoice_data(invoice_path)
-            print(f"Invoice extraction result: {invoice_result.get('success', False)}")
+            invoice_data = (
+                invoice_result.get("data", {}) if invoice_result["success"] else {}
+            )
 
-            if not invoice_result["success"]:
-                error_msg = invoice_result.get("error", "Unknown error")
-                raw_response = invoice_result.get("raw_response", "")
-                print(f"❌ Invoice extraction failed: {error_msg}")
-                if raw_response:
-                    print(f"Raw response: {raw_response[:200]}...")
+            if invoice_result["success"]:
+                print(f"✓ Invoice data extracted: {invoice_data}")
+            else:
+                print(
+                    f"⚠️  Invoice extraction had issues, continuing with verification..."
+                )
+
+            # STEP 2: AI-based holistic verification (the smart way!)
+            print(f"\nStep 2: AI verification of invoice against item...")
+            item_description = metadata_dict.get("description", "Unknown item")
+
+            verification_result = watsonx_client.verify_invoice_against_item(
+                invoice_path, item_description, metadata_dict
+            )
+
+            if not verification_result["success"]:
+                error_msg = verification_result.get("error", "Unknown error")
+                print(f"❌ Verification failed: {error_msg}")
                 return JSONResponse(
                     status_code=500,
                     content={
                         "success": False,
-                        "error": f"Failed to extract invoice data: {error_msg}",
+                        "error": f"Failed to verify invoice: {error_msg}",
                     },
                 )
 
-            invoice_data = invoice_result["data"]
-            print(f"Invoice data: {invoice_data}")
+            # Parse AI's holistic judgment
+            verification = verification_result["verification"]
+            matches = verification.get("matches", False)
+            ai_confidence = verification.get("confidence", "low")
+            reasoning = verification.get("reasoning", "")
+            discrepancies = verification.get("key_discrepancies", [])
+            invoice_product = verification.get("invoice_product", "Unknown")
 
-            # Compare invoice with item metadata
-            discrepancies = []
-            match_count = 0
-            total_fields = 0
+            print(f"\n✓ AI Verification Complete:")
+            print(f"  Matches: {matches}")
+            print(f"  Confidence: {ai_confidence}")
+            print(f"  Reasoning: {reasoning}")
+            print(f"  Discrepancies: {discrepancies}")
 
-            # Fields to compare (only if present in both)
-            comparable_fields = {
-                "brand": "Brand",
-                "model": "Model",
-                "color": "Color",
-                "material": "Material",
-                "condition": "Condition",
-                "category": "Category",
-            }
-
-            for field_key, field_name in comparable_fields.items():
-                invoice_value = invoice_data.get(field_key)
-                item_value = metadata_dict.get(field_key)
-
-                # Only compare if both values exist and are not null
-                if invoice_value and item_value and invoice_value != "null":
-                    total_fields += 1
-                    invoice_lower = str(invoice_value).lower()
-                    item_lower = str(item_value).lower()
-
-                    print(
-                        f"Comparing {field_name}: invoice='{invoice_lower}' vs item='{item_lower}'"
-                    )
-
-                    # Check for match (exact or partial)
-                    if invoice_lower == item_lower:
-                        match_count += 1
-                        print(f"  ✓ Exact match")
-                    elif invoice_lower in item_lower or item_lower in invoice_lower:
-                        match_count += 0.5
-                        print(f"  ~ Partial match")
-                    else:
-                        discrepancies.append(
-                            f"{field_name}: Invoice says '{invoice_value}', but item is '{item_value}'"
-                        )
-                        print(f"  ✗ Mismatch!")
-
-            # Calculate match percentage
-            if total_fields > 0:
-                match_percentage = (match_count / total_fields) * 100
+            # Determine match status (more lenient as requested)
+            if matches:
+                if ai_confidence == "high":
+                    match_status = "match"
+                    confidence = "High"
+                    match_percentage = 95.0
+                elif ai_confidence == "medium":
+                    match_status = "match"
+                    confidence = "Medium"
+                    match_percentage = 75.0
+                else:  # low confidence but still matches
+                    match_status = "partial"
+                    confidence = "Low"
+                    match_percentage = 60.0
             else:
-                # If no comparable fields, consider it uncertain
-                match_percentage = 50.0
-
-            print(f"\nMatch score: {match_count}/{total_fields} = {match_percentage}%")
-            print(f"Discrepancies: {discrepancies}")
-
-            # Determine match status
-            if match_percentage >= 70:
-                match_status = "match"
-                confidence = "High" if match_percentage >= 85 else "Medium"
-            elif match_percentage >= 40:
-                match_status = "partial"
-                confidence = "Low"
-            else:
-                match_status = "mismatch"
-                confidence = "Very Low"
+                # Even if AI says no match, be lenient
+                if ai_confidence == "low":
+                    # Low confidence mismatch = might be search refinement issue
+                    match_status = "partial"
+                    confidence = "Very Low"
+                    match_percentage = 40.0
+                else:
+                    # High/medium confidence mismatch = likely fraud
+                    match_status = "mismatch"
+                    confidence = "Low"
+                    match_percentage = 20.0
 
             return JSONResponse(
                 content={
@@ -607,8 +596,13 @@ async def verify_invoice(
                     "match_status": match_status,
                     "match_percentage": round(match_percentage, 1),
                     "confidence": confidence,
+                    "reasoning": reasoning,
+                    "invoice_product": invoice_product,
                     "discrepancies": discrepancies,
-                    "invoice_data": invoice_data,
+                    "invoice_data": invoice_data,  # Still include extracted data for display
+                    "parsing_warning": verification_result.get(
+                        "parsing_warning"
+                    ),  # Include parsing warning if any
                 }
             )
 
