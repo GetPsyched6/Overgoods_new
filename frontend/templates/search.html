@@ -344,7 +344,7 @@
 
 			.upload-area.has-image:hover {
 				transform: none;
-			}
+        }
 
         .btn {
 			background: var(--accent-primary);
@@ -818,96 +818,76 @@
 					>
 						Search by Image
 					</button>
-				</div>
-
-				<div
-					class="search-section"
-					style="
-						border: 2px solid var(--warning);
-						background: linear-gradient(
-							135deg,
-							rgba(245, 158, 11, 0.1),
-							rgba(239, 68, 68, 0.1)
-						);
-					"
-				>
-					<h3>
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-							<path
-								d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"
-							/>
-						</svg>
-						Database Reload
-					</h3>
-					<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
-						<strong>Hot reload</strong> the database from disk without
-						restarting the server. Use this after fixing metadata via terminal
-						commands!
-					</p>
-				<button
-					class="btn btn-warning"
-					onclick="reloadDatabase()"
-					style="width: 100%;"
-				>
-					🔄 Reload Database from Disk
-				</button>
             </div>
 
-            <div class="search-section">
-                <h3>
+			<!-- Magic Button Section -->
+			<div class="search-section" style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.08)); border: 1px solid var(--accent-primary);">
+				<h3 style="color: var(--accent-primary);">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-							<path
-								d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"
-							/>
+						<path d="M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.64 6.35,17.66C9.37,20.67 14.19,20.78 17.33,17.97Z"/>
                     </svg>
-						AI Text Descriptions
+					Quick Setup
                 </h3>
-					<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
-						Generate detailed text descriptions for items using Watsonx AI.
-					</p>
-					<div style="display: flex; gap: 1rem; flex-wrap: wrap">
-						<button
-							class="btn btn-warning"
-							onclick="reprocessDescriptions(false)"
-						>
-							Process New Items
-						</button>
-					<button
-						class="btn"
-						onclick="reprocessDescriptions(true)"
-						style="background: var(--error);"
-					>
-						Force Regenerate All
+				<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
+					One-click setup for new images: sync assets, generate AI descriptions, and create CLIP embeddings.
+                </p>
+				<button class="btn" onclick="processAllNewItems()" style="width: 100%; font-size: 1.05rem; padding: 1rem;">
+					✨ Process All New Items
                 </button>
             </div>
+
+			<!-- Collapsible Data Management Section -->
+			<details class="search-section" style="cursor: pointer;">
+				<summary style="list-style: none; cursor: pointer;">
+					<h3 style="display: inline-flex; align-items: center; gap: 0.625rem;">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+							<path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/>
+						</svg>
+						Advanced Data Management
+						<span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 400;">(Click to expand)</span>
+					</h3>
+				</summary>
+				
+				<div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+					<!-- Individual Controls -->
+					<div style="display: grid; gap: 1.5rem;">
+						<!-- Sync Assets -->
+						<div>
+							<h4 style="font-size: 0.9375rem; margin-bottom: 0.5rem; color: var(--text-primary);">📁 Asset Sync</h4>
+							<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">Scan for new images in the assets folder.</p>
+							<button class="btn btn-success" onclick="syncAssets()" style="font-size: 0.875rem; padding: 0.625rem 1.25rem;">Sync New Images</button>
         </div>
 
-				<div class="search-section">
-					<h3>
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-							<path
-								d="M21,16V4H3V16H21M21,2A2,2 0 0,1 23,4V16A2,2 0 0,1 21,18H14V20H16V22H8V20H10V18H3C1.89,18 1,17.1 1,16V4C1,2.89 1.89,2 3,2H21M5,6H14V11H5V6M15,6H19V8H15V6M19,9V14H15V9H19M5,12H9V14H5V12M10,12H14V14H10V12Z"
-							/>
-						</svg>
-						CLIP Image Embeddings
-					</h3>
-					<p style="color: var(--text-secondary); margin-bottom: 1.5rem">
-						Manage visual embeddings for fast and accurate image search. Run
-						"Sync" if you added new images.
-					</p>
-				<div style="display: flex; gap: 1rem; flex-wrap: wrap">
-					<button class="btn btn-success" onclick="syncAssets()">
-						🔄 Sync New Images
-					</button>
-					<button class="btn btn-warning" onclick="generateEmbeddings(false)">
-						Generate Embeddings
-					</button>
-					<button class="btn" onclick="generateEmbeddings(true)" style="background: var(--error);">
-						Force Regenerate All
-					</button>
+						<!-- AI Descriptions -->
+						<div>
+							<h4 style="font-size: 0.9375rem; margin-bottom: 0.5rem; color: var(--text-primary);">📝 AI Text Descriptions</h4>
+							<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">Generate detailed product descriptions using Watsonx AI.</p>
+							<div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+								<button class="btn btn-warning" onclick="reprocessDescriptions(false)" style="font-size: 0.875rem; padding: 0.625rem 1.25rem;">Process New</button>
+								<button class="btn" onclick="reprocessDescriptions(true)" style="background: var(--error); font-size: 0.875rem; padding: 0.625rem 1.25rem;">Force All</button>
+							</div>
+						</div>
+
+						<!-- CLIP Embeddings -->
+						<div>
+							<h4 style="font-size: 0.9375rem; margin-bottom: 0.5rem; color: var(--text-primary);">🖼️ CLIP Image Embeddings</h4>
+							<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">Create visual embeddings for image search.</p>
+							<div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+								<button class="btn btn-warning" onclick="generateEmbeddings(false)" style="font-size: 0.875rem; padding: 0.625rem 1.25rem;">Generate New</button>
+								<button class="btn" onclick="generateEmbeddings(true)" style="background: var(--error); font-size: 0.875rem; padding: 0.625rem 1.25rem;">Force All</button>
+							</div>
+						</div>
+
+						<!-- Database Reload -->
+						<div>
+							<h4 style="font-size: 0.9375rem; margin-bottom: 0.5rem; color: var(--text-primary);">🔄 Database Reload</h4>
+							<p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">Hot reload database after manual metadata edits.</p>
+							<button class="btn btn-warning" onclick="reloadDatabase()" style="font-size: 0.875rem; padding: 0.625rem 1.25rem;">Reload from Disk</button>
+						</div>
+					</div>
 				</div>
-				</div>
-			</div>
+			</details>
+		</div>
 
 			<div id="loading" style="display: none">
             <div class="loading">
@@ -1445,10 +1425,89 @@
         function displayError(error) {
 				const resultsList = document.getElementById("resultsList");
             resultsList.innerHTML = `<div class="error"><strong>Error:</strong> ${error}</div>`;
-				document.getElementById("results").style.display = "block";
+			document.getElementById("results").style.display = "block";
         }
 
-			async function reloadDatabase() {
+		// Magic button - Process all new items at once
+		async function processAllNewItems() {
+			const confirmation = confirm(
+				"✨ This will perform the following operations:\n\n" +
+				"1. Sync new images from assets folder\n" +
+				"2. Generate AI text descriptions for new items\n" +
+				"3. Create CLIP embeddings for visual search\n\n" +
+				"This may take several minutes.\n\nContinue?"
+			);
+			
+			if (!confirmation) return;
+
+			let totalAdded = 0;
+			let totalDescriptions = 0;
+			let totalEmbeddings = 0;
+
+			try {
+				// Step 1: Sync Assets
+				alert("Step 1/3: Syncing new images from assets folder...");
+				const syncResponse = await fetch("/api/sync-assets", { method: "POST" });
+				const syncResult = await syncResponse.json();
+				
+				if (syncResult.success) {
+					totalAdded = syncResult.added;
+					if (totalAdded === 0) {
+						alert("No new images found. Database is already up to date!");
+						return;
+					}
+					alert(`✅ Step 1/3 Complete: Found ${totalAdded} new image(s)`);
+				} else {
+					throw new Error(syncResult.error || "Sync failed");
+				}
+
+				// Step 2: Generate AI Descriptions
+				alert("Step 2/3: Generating AI descriptions (this may take a while)...");
+				const descFormData = new FormData();
+				descFormData.append("force", false);
+				const descResponse = await fetch("/api/reprocess-descriptions", { 
+					method: "POST", 
+					body: descFormData 
+				});
+				const descResult = await descResponse.json();
+				
+				if (descResult.success) {
+					totalDescriptions = descResult.updated;
+					alert(`✅ Step 2/3 Complete: Generated ${totalDescriptions} AI description(s)`);
+				} else {
+					throw new Error(descResult.error || "Description generation failed");
+				}
+
+				// Step 3: Generate CLIP Embeddings
+				alert("Step 3/3: Creating CLIP embeddings (this will take a few minutes)...");
+				const embedFormData = new FormData();
+				embedFormData.append("force", false);
+				const embedResponse = await fetch("/api/generate-embeddings", { 
+					method: "POST", 
+					body: embedFormData 
+				});
+				const embedResult = await embedResponse.json();
+				
+				if (embedResult.success) {
+					totalEmbeddings = embedResult.updated;
+					alert(
+						`🎉 All Done! Complete Setup Summary:\n\n` +
+						`📁 New images synced: ${totalAdded}\n` +
+						`📝 AI descriptions generated: ${totalDescriptions}\n` +
+						`🖼️ CLIP embeddings created: ${totalEmbeddings}\n\n` +
+						`Your database is now fully updated and ready for search!`
+					);
+				} else {
+					throw new Error(embedResult.error || "Embedding generation failed");
+				}
+
+			} catch (error) {
+				console.error("Process all error:", error);
+				alert(`❌ Error during setup: ${error.message}\n\nSome steps may have completed successfully. Check individual tools in Advanced Data Management.`);
+			}
+		}
+
+		async function reloadDatabase() {
             const button = event.target;
             const originalText = button.textContent;
             
@@ -1640,52 +1699,88 @@
 			let invoiceFile = null;
 			let topRefinedResult = null;
 
-			// Modified displaySearchResults to show quiz button for multiple results
-			const originalDisplaySearchResults = displaySearchResults;
-			displaySearchResults = function (results) {
-				currentSearchResults = results;
-				originalDisplaySearchResults(results);
+		// Modified displaySearchResults to show quiz button for multiple results
+		const originalDisplaySearchResults = displaySearchResults;
+		displaySearchResults = function (results) {
+			currentSearchResults = results;
+			
+			// RESET ALL QUIZ STATE - Clear everything from previous refinement
+			userType = null;
+			invoiceFile = null;
+			topRefinedResult = null;
+			quizAnswers = {};
+			quizQuestions = [];
+			
+			// Hide all quiz-related UI elements from previous search (with null checks)
+			const quizSectionEl = document.getElementById("quizSection");
+			if (quizSectionEl) quizSectionEl.style.display = "none";
+			
+			const refinedResultsEl = document.getElementById("refinedResults");
+			if (refinedResultsEl) refinedResultsEl.style.display = "none";
+			
+			const invoiceVerificationEl = document.getElementById("invoiceVerification");
+			if (invoiceVerificationEl) invoiceVerificationEl.style.display = "none";
+			
+			const verificationResultEl = document.getElementById("verificationResult");
+			if (verificationResultEl) verificationResultEl.style.display = "none";
+			
+			// Clear quiz content to prevent stale data (with null check)
+			const quizQuestionsEl = document.getElementById("quizQuestions");
+			if (quizQuestionsEl) quizQuestionsEl.innerHTML = "";
+			
+			// Now show the new results
+			originalDisplaySearchResults(results);
 
-				// Show quiz button if we have 2+ results
-				const refineButton = document.getElementById("refineButtonContainer");
+			// Show quiz button if we have 2+ results
+			const refineButton = document.getElementById("refineButtonContainer");
+			if (refineButton) {
 				if (results.length >= 2) {
 					refineButton.style.display = "block";
 				} else {
 					refineButton.style.display = "none";
 				}
-			};
+			}
+		};
 
-			async function startRefinementQuiz() {
-				// Clear old results
-				document.getElementById("refinedResults").style.display = "none";
-				if (document.getElementById("verificationResult")) {
-					document.getElementById("verificationResult").style.display = "none";
-				}
-				document.getElementById("invoiceVerification").style.display = "none";
+		async function startRefinementQuiz() {
+			// SAFETY CHECK: Ensure we have valid search results
+			if (!currentSearchResults || currentSearchResults.length < 2) {
+				alert("⚠️ No search results available. Please perform a search first.");
+				return;
+			}
 
-				// Reset variables
-				userType = null;
-				invoiceFile = null;
-				topRefinedResult = null;
-				quizAnswers = {};
+			// Clear old results
+			document.getElementById("refinedResults").style.display = "none";
+			if (document.getElementById("verificationResult")) {
+				document.getElementById("verificationResult").style.display = "none";
+			}
+			document.getElementById("invoiceVerification").style.display = "none";
 
-				// Hide quiz button
-				document.getElementById("refineButtonContainer").style.display = "none";
+			// Reset variables
+			userType = null;
+			invoiceFile = null;
+			topRefinedResult = null;
+			quizAnswers = {};
 
-				// Show loading state
-				const quizSection = document.getElementById("quizSection");
-				quizSection.style.display = "block";
-				document.getElementById("quizQuestions").innerHTML =
-					'<div style="text-align: center; padding: 2rem;"><div class="loading-spinner"></div><p style="color: var(--text-secondary); margin-top: 1rem;">Analyzing items and generating questions...</p></div>';
+			// Hide quiz button
+			document.getElementById("refineButtonContainer").style.display = "none";
 
-				// Scroll to quiz
-				setTimeout(() => {
-					quizSection.scrollIntoView({ behavior: "smooth", block: "start" });
-				}, 100);
+			// Show loading state
+			const quizSection = document.getElementById("quizSection");
+			quizSection.style.display = "block";
+			document.getElementById("quizQuestions").innerHTML =
+				'<div style="text-align: center; padding: 2rem;"><div class="loading-spinner"></div><p style="color: var(--text-secondary); margin-top: 1rem;">Analyzing items and generating questions...</p></div>';
 
-				try {
-					// Get result IDs
-					const resultIds = currentSearchResults.map((r) => r.id);
+			// Scroll to quiz
+			setTimeout(() => {
+				quizSection.scrollIntoView({ behavior: "smooth", block: "start" });
+			}, 100);
+
+			try {
+				// Get result IDs from current search results
+				const resultIds = currentSearchResults.map((r) => r.id);
+				
+				console.log("Starting quiz for results:", resultIds); // Debug logging
 
 					// Call API to generate questions
 					const formData = new FormData();
@@ -1705,22 +1800,26 @@
 					) {
 						quizQuestions = result.questions;
 						displayQuizQuestions(result.questions);
-					} else {
-						document.getElementById("quizQuestions").innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: var(--error);">
-                            <p>❌ Unable to generate questions. The items might be too similar.</p>
-                            <p style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Try using more specific search terms or filters.</p>
-                        </div>
-                    `;
-					}
-				} catch (error) {
+				} else {
 					document.getElementById("quizQuestions").innerHTML = `
                     <div style="text-align: center; padding: 2rem; color: var(--error);">
-                        <p>❌ Error: ${error.message}</p>
+                        <p>❌ Unable to generate questions. The items might be too similar.</p>
+                        <p style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Try using more specific search terms or filters.</p>
+                        <button class="btn btn-secondary" onclick="cancelQuiz()" style="margin-top: 1rem;">← Back to Results</button>
                     </div>
                 `;
 				}
+			} catch (error) {
+				console.error("Quiz generation error:", error);
+				document.getElementById("quizQuestions").innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: var(--error);">
+                    <p>❌ Error: ${error.message}</p>
+                    <p style="margin-top: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">Please try again or perform a new search.</p>
+                    <button class="btn btn-secondary" onclick="cancelQuiz()" style="margin-top: 1rem;">← Back to Results</button>
+                </div>
+            `;
 			}
+		}
 
 			function displayQuizQuestions(questions) {
 				quizAnswers = {}; // Reset answers

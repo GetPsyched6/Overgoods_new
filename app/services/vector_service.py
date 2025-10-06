@@ -319,7 +319,7 @@ class SimpleVectorDatabase:
         except Exception as e:
             print(f"Error in form search: {e}")
             # Fallback to text search
-            query_parts = []
+        query_parts = []
         if form_data.get("keywords"):
             query_parts.append(form_data["keywords"])
         if form_data.get("color"):
@@ -1028,9 +1028,7 @@ class SimpleVectorDatabase:
 
             self.add_item(item_id, description, image_path, metadata)
 
-    def analyze_results_for_refinement(
-        self, result_ids: List[str]
-    ) -> Dict[str, Any]:
+    def analyze_results_for_refinement(self, result_ids: List[str]) -> Dict[str, Any]:
         """Analyze search results to find discriminating features for quiz questions"""
         # Get the full items for these IDs
         items = [item for item in self.items if item["id"] in result_ids]
@@ -1085,9 +1083,7 @@ class SimpleVectorDatabase:
             )
 
         # Check condition variation
-        conditions = [
-            item["metadata"].get("condition", "Unknown") for item in items
-        ]
+        conditions = [item["metadata"].get("condition", "Unknown") for item in items]
         unique_conditions = set(
             c for c in conditions if c not in ["Unknown", "unknown"]
         )
