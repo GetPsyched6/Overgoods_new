@@ -1029,6 +1029,12 @@
 								confidences: confidence.model,
 							},
 							{
+								label: "UPC",
+								isMulti: true,
+								values: fields.upc,
+								confidences: confidence.upc,
+							},
+							{
 								label: "Quantity",
 								isMulti: true,
 								values: fields.quantity,
@@ -1136,6 +1142,11 @@
 								label: "Model",
 								value: fields.model || "Not identified",
 								confidence: confidence.model,
+							},
+							{
+								label: "UPC",
+								value: fields.upc || "Not detected",
+								confidence: confidence.upc,
 							},
 							{
 								label: "Quantity",

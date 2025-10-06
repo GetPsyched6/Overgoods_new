@@ -399,6 +399,7 @@ Schema (arrays must have EXACTLY {object_count} entries):
     "brand": ["", ...],
     "model": ["", ...],
     "quantity": [1, ...],
+    "upc": ["", ...],
     "additional_info": ["", ...]
   }},
   "confidence": {{
@@ -408,7 +409,8 @@ Schema (arrays must have EXACTLY {object_count} entries):
     "category": [0.0, ...],
     "brand": [0.0, ...],
     "model": [0.0, ...],
-    "quantity": [0.0, ...]
+    "quantity": [0.0, ...],
+    "upc": [0.0, ...]
   }},
   "descriptions": ["Rich detailed description of object 1 with brand, model, condition, distinctive features", "Rich detailed description of object 2...", ...],
   "global": {{
@@ -425,6 +427,7 @@ Instructions:
 - Order: left to right, or primary object first
 - **descriptions**: Write DETAILED 2-3 sentence descriptions for each object including brand, model, condition, color, distinctive features
 - **quantity**: COUNT how many of each object type are visible. If there are 5 plates, quantity=5. If 1 Game Boy, quantity=1. Be precise!
+- **upc**: For each object, if a UPC/EAN barcode is visible on that specific item or its packaging, read and extract the numeric code (typically 12-13 digits). Look carefully at barcode labels. If you can clearly read the numbers below the barcode stripes, transcribe them exactly. If no barcode is visible for that object or the numbers are not readable, use empty string "". Do NOT guess or invent UPC codes.
 - **additional_info**: Include EVERYTHING - model numbers, serial numbers, generation info, special editions, any visible text on that specific object, unique identifiers, version details, region codes, anything that helps identify the exact variant
 - **Brand/Model**: Be aggressive in identification - use button layouts, port configs, design language, any visual cues
 - **global.object_count**: MUST be {object_count} (the number of distinct object TYPES, not total quantity)
@@ -479,6 +482,7 @@ Schema:
     "weight": { "value": null, "unit": "g|kg|lb|oz|null" },
     "print_label": true,
     "sort": "known_overgoods|vague_overgoods",
+    "upc": "",
     "additional_info": ""
   },
   "confidence": {
@@ -493,7 +497,8 @@ Schema:
     "quantity": 0.0,
     "weight": 0.0,
     "print_label": 0.0,
-    "sort": 0.0
+    "sort": 0.0,
+    "upc": 0.0
   },
   "evidence": {
     "ocr_like_text": "",
@@ -516,6 +521,7 @@ Instructions:
 - **Weight**: ONLY if printed/legible on the image; otherwise leave value=null and unit=null but still include a brief rationale in additional_info if an apparent size/form suggests a typical range (do NOT invent numbers).
 - **print_label = true** if a barcode/QR/SKU/address block or shipping label is visibly present (even if partially unreadable).
 - **sort** = "known_overgoods" if there is any strong identifier (barcode/SKU/model/no. or clearly addressed label); otherwise "vague_overgoods".
+- **upc**: If a UPC/EAN barcode is visible in the image, read and extract the numeric code (typically 12-13 digits). Look carefully at barcode labels on the item or packaging. If you can clearly read the numbers below the barcode stripes, transcribe them exactly. If no barcode is visible or the numbers are not readable, leave this as an empty string "". Do NOT guess or invent UPC codes.
 - **additional_info**: Include ALL identifying details you can extract - model numbers, serial numbers visible, distinctive features, generations, variants, special editions, any text visible on the item or packaging. Be comprehensive.
 - **description**: 1 concise sentence that includes brand and model when known, summarizing the item using ONLY information implied by the image.
 

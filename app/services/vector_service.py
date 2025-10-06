@@ -713,6 +713,7 @@ class SimpleVectorDatabase:
                                 "sub_category": sub_category,
                                 "brand": fields.get("brand", ""),
                                 "model": fields.get("model", ""),
+                                "upc": fields.get("upc", ""),
                                 "ai_generated": True,
                             }
                         )
@@ -754,6 +755,7 @@ class SimpleVectorDatabase:
                                 "sub_category": sub_category,
                                 "brand": fields.get("brand", ""),
                                 "model": fields.get("model", ""),
+                                "upc": fields.get("upc", ""),
                                 "ai_generated": True,
                             }
                         )
