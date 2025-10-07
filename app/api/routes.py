@@ -47,7 +47,7 @@ def save_uploaded_file(upload_file: UploadFile) -> str:
 @router.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the main page"""
-    with open("frontend/templates/home.html", "r") as f:
+    with open("frontend/templates/home.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -624,12 +624,12 @@ async def verify_invoice(
 @router.get("/description", response_class=HTMLResponse)
 async def description_page():
     """Serve the description generation page"""
-    with open("frontend/templates/description.html", "r") as f:
+    with open("frontend/templates/description.html", "r", encoding="utf-8") as f:
         return f.read()
 
 
 @router.get("/search", response_class=HTMLResponse)
 async def search_page():
     """Serve the search page"""
-    with open("frontend/templates/search.html", "r") as f:
+    with open("frontend/templates/search.html", "r", encoding="utf-8") as f:
         return f.read()
