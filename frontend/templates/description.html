@@ -260,14 +260,40 @@
 				}
 			}
 
-			.loading-spinner {
-				width: 48px;
-				height: 48px;
-				margin: 0 auto 1rem;
-				border: 4px solid var(--border);
-				border-top: 4px solid var(--accent-primary);
-				border-radius: 50%;
-				animation: spin 1s linear infinite;
+			/* Circular Progress Indicator */
+			.progress-circle {
+				position: relative;
+				width: 120px;
+				height: 120px;
+				margin: 0 auto 1.5rem;
+			}
+
+			.progress-circle svg {
+				transform: rotate(-90deg);
+			}
+
+			.progress-circle-bg {
+				fill: none;
+				stroke: var(--border);
+				stroke-width: 8;
+			}
+
+			.progress-circle-fill {
+				fill: none;
+				stroke: var(--accent-primary);
+				stroke-width: 8;
+				stroke-linecap: round;
+				transition: stroke-dashoffset 0.3s ease;
+			}
+
+			.progress-text {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				font-size: 1.5rem;
+				font-weight: 600;
+				color: var(--text-primary);
 			}
 
 			@keyframes spin {
@@ -678,7 +704,26 @@
 
 					<div id="loading" style="display: none">
 						<div class="loading">
-							<div class="loading-spinner"></div>
+							<div class="progress-circle">
+								<svg width="120" height="120">
+									<circle
+										class="progress-circle-bg"
+										cx="60"
+										cy="60"
+										r="52"
+									></circle>
+									<circle
+										id="progressCircleFill"
+										class="progress-circle-fill"
+										cx="60"
+										cy="60"
+										r="52"
+										stroke-dasharray="326.73"
+										stroke-dashoffset="326.73"
+									></circle>
+								</svg>
+								<div class="progress-text" id="progressText">0%</div>
+							</div>
 							<p id="loadingStatus" style="color: var(--text-secondary)">
 								AI is analyzing your image...
 							</p>
@@ -690,7 +735,7 @@
 									margin-top: 0.5rem;
 								"
 							>
-								This may take 10-30 seconds
+								Estimated time: 25-40 seconds
 							</p>
 						</div>
 					</div>
@@ -742,6 +787,73 @@
 			// Load saved theme
 			const savedTheme = localStorage.getItem("theme") || "dark";
 			document.documentElement.setAttribute("data-theme", savedTheme);
+
+			// Smart Progress Management
+			let progressInterval = null;
+			let currentProgress = 0;
+
+			function startProgress(operation) {
+				// Operation timings (in seconds)
+				const timings = {
+					multipleCheck: 6,              // 5-7s average
+					imageAnalysis: 32,             // 25-32s for single object
+					imageAnalysisMultiple: 40,     // ~40s for multiple objects
+					quizGeneration: 15,            // ~15s
+					invoiceVerify: 10,             // ~10s
+					naturalSearch: 10              // ~10s
+				};
+
+				const totalTime = timings[operation] * 1000; // Convert to ms
+				const updateInterval = 100; // Update every 100ms
+				const totalUpdates = totalTime / updateInterval;
+				
+				currentProgress = 0;
+				const circle = document.getElementById('progressCircleFill');
+				const text = document.getElementById('progressText');
+				const circumference = 326.73; // 2 * PI * radius (52)
+
+				if (progressInterval) clearInterval(progressInterval);
+
+				let updateCount = 0;
+				progressInterval = setInterval(() => {
+					updateCount++;
+					
+					// Non-linear progress: fast at start, slow near end
+					// Uses easing function: 1 - (1-x)^3 for smooth deceleration
+					const linearProgress = updateCount / totalUpdates;
+					const easedProgress = 1 - Math.pow(1 - linearProgress, 3);
+					
+					// Cap at 99% until actual response arrives
+					currentProgress = Math.min(Math.floor(easedProgress * 99), 99);
+					
+					// Update circle
+					const offset = circumference - (currentProgress / 100) * circumference;
+					circle.style.strokeDashoffset = offset;
+					text.textContent = currentProgress + '%';
+
+					// Stop at 99%
+					if (currentProgress >= 99) {
+						clearInterval(progressInterval);
+					}
+				}, updateInterval);
+			}
+
+			function completeProgress() {
+				// Smoothly complete to 100%
+				const circle = document.getElementById('progressCircleFill');
+				const text = document.getElementById('progressText');
+				const circumference = 326.73;
+
+				if (progressInterval) clearInterval(progressInterval);
+
+				// Animate to 100%
+				currentProgress = 100;
+				circle.style.strokeDashoffset = 0;
+				text.textContent = '100%';
+
+				// Hold at 100% briefly before showing results
+				return new Promise(resolve => setTimeout(resolve, 300));
+			}
 
 			// Drag and drop functionality
 			function handleDragOver(event) {
@@ -801,7 +913,8 @@
 				// Step 1: Check for multiple objects
 				document.getElementById("loadingStatus").textContent =
 					"Checking for multiple objects in the image...";
-				document.getElementById("loadingSubtext").textContent = "Step 1 of 2";
+				document.getElementById("loadingSubtext").textContent = "Step 1 of 2 • Estimated: 5-7 seconds";
+				startProgress('multipleCheck');
 
 				let multipleObjectsMsg = "";
 
@@ -861,9 +974,23 @@
 					}
 
 					// Step 2: Generate full description
+					await completeProgress(); // Complete step 1
+					
+					// Adjust timing based on whether multiple objects were detected
+					const isMultipleObjects = multipleCheckResult.success && 
+						multipleCheckResult.data && 
+						multipleCheckResult.data.multiple_objects;
+					
 					document.getElementById("loadingStatus").textContent =
 						"Analyzing item details...";
-					document.getElementById("loadingSubtext").textContent = "Step 2 of 2";
+					
+					if (isMultipleObjects) {
+						document.getElementById("loadingSubtext").textContent = "Step 2 of 2 • Estimated: ~40 seconds";
+						startProgress('imageAnalysisMultiple'); // 40s for multiple objects
+					} else {
+						document.getElementById("loadingSubtext").textContent = "Step 2 of 2 • Estimated: 25-32 seconds";
+						startProgress('imageAnalysis'); // 32s for single object
+					}
 
 					// Create new FormData for second request
 					const formData2 = new FormData();
@@ -884,6 +1011,10 @@
 
 					const result = await response.json();
 
+					// Complete progress to 100% FIRST
+					await completeProgress();
+					
+					// Then hide loading and re-enable button
 					document.getElementById("loading").style.display = "none";
 					document.getElementById("generateBtn").disabled = false;
 
@@ -895,11 +1026,12 @@
 					}
 
 					if (result.success) {
-						displayResults(result.data, multipleObjectsMsg);
+						await displayResults(result.data, multipleObjectsMsg);
 					} else {
 						displayError(result.error, result.raw_response);
 					}
 				} catch (error) {
+					await completeProgress();
 					document.getElementById("loading").style.display = "none";
 					document.getElementById("generateBtn").disabled = false;
 					displayError("Network error: " + error.message);
@@ -924,6 +1056,8 @@
 			}
 
 			async function displayResults(data, multipleObjectsMsg = "") {
+				// Loading already hidden and progress already completed in calling function
+				
 				const resultContent = document.getElementById("resultContent");
 
 				// Check if there's already a multiple objects message, preserve it
@@ -987,17 +1121,12 @@
 							},
 							{
 								label: "OCR Text",
-								value: globalData.ocr_text || "None detected",
+								value: (globalData.ocr_text || "None detected").substring(0, 150) + ((globalData.ocr_text && globalData.ocr_text.length > 150) ? "..." : ""),
 								confidence: null,
 							},
 							{
 								label: "Visible Marks",
 								value: globalData.visible_marks || "None noted",
-								confidence: null,
-							},
-							{
-								label: "Needs Review",
-								value: globalData.needs_review ? "Yes" : "No",
 								confidence: null,
 							}
 						);
@@ -1051,12 +1180,16 @@
 								isMulti: true,
 								values: fields.colour,
 								confidences: confidence.colour,
+								secondaryValues: fields.colour_secondary,
+								secondaryConfidences: confidence.colour_secondary,
 							},
 							{
 								label: "Material",
 								isMulti: true,
 								values: fields.material,
 								confidences: confidence.material,
+								secondaryValues: fields.material_secondary,
+								secondaryConfidences: confidence.material_secondary,
 							},
 							{
 								label: "Category",
@@ -1089,44 +1222,17 @@
 							},
 							{
 								label: "OCR Text",
-								value: globalData.ocr_like_text || "None detected",
+								value: (globalData.ocr_like_text || "None detected").substring(0, 150) + ((globalData.ocr_like_text && globalData.ocr_like_text.length > 150) ? "..." : ""),
 								confidence: null,
 							},
 							{
 								label: "Visible Marks",
 								value: globalData.visible_marks || "None noted",
 								confidence: null,
-							},
-							{
-								label: "Needs Review",
-								value: data.needs_review ? "Yes" : "No",
-								confidence: null,
 							}
 						);
 
 						// OBJECT-SPECIFIC ITEMS
-						// Build color value with secondary
-						let colorValue = fields.colour || "N/A";
-						if (
-							fields.colour_secondary &&
-							fields.colour_secondary.color &&
-							fields.colour_secondary.color !== "null" &&
-							fields.colour_secondary.percentage > 0
-						) {
-							colorValue += ` + ${fields.colour_secondary.color} (${fields.colour_secondary.percentage}%)`;
-						}
-
-						// Build material value with secondary
-						let materialValue = fields.material || "N/A";
-						if (
-							fields.material_secondary &&
-							fields.material_secondary.material &&
-							fields.material_secondary.material !== "null" &&
-							fields.material_secondary.percentage > 0
-						) {
-							materialValue += ` + ${fields.material_secondary.material} (${fields.material_secondary.percentage}%)`;
-						}
-
 						objectItems.push(
 							{
 								label: "Description",
@@ -1160,21 +1266,17 @@
 							},
 							{
 								label: "Color",
-								value: colorValue,
+								value: fields.colour || "N/A",
 								confidence: confidence.colour,
-								hasSecondary:
-									fields.colour_secondary?.color &&
-									fields.colour_secondary.color !== "null" &&
-									fields.colour_secondary.percentage > 0,
+								secondaryValue: fields.colour_secondary && fields.colour_secondary !== "null" ? fields.colour_secondary : null,
+								secondaryConfidence: fields.colour_secondary && fields.colour_secondary !== "null" ? confidence.colour_secondary : null,
 							},
 							{
 								label: "Material",
-								value: materialValue,
+								value: fields.material || "N/A",
 								confidence: confidence.material,
-								hasSecondary:
-									fields.material_secondary?.material &&
-									fields.material_secondary.material !== "null" &&
-									fields.material_secondary.percentage > 0,
+								secondaryValue: fields.material_secondary && fields.material_secondary !== "null" ? fields.material_secondary : null,
+								secondaryConfidence: fields.material_secondary && fields.material_secondary !== "null" ? confidence.material_secondary : null,
 							},
 							{
 								label: "Category",
@@ -1192,11 +1294,6 @@
 								label: "Print Label",
 								value: fields.print_label ? "Yes" : "No",
 								confidence: confidence.print_label,
-							},
-							{
-								label: "Sort Classification",
-								value: fields.sort || "N/A",
-								confidence: confidence.sort,
 							},
 							{
 								label: "Additional Info",
@@ -1381,6 +1478,57 @@
 							}
 
 							valuesContainer.appendChild(rowDiv);
+							
+							// Add secondary value row within same card if present
+							if (item.secondaryValues && item.secondaryValues[objIdx] && item.secondaryValues[objIdx] !== "null") {
+								const secRowDiv = document.createElement("div");
+								secRowDiv.style.display = "flex";
+								secRowDiv.style.flexDirection = "column";
+								secRowDiv.style.gap = "0.5rem";
+								secRowDiv.style.marginTop = "0.75rem";
+								
+								const secLabel = document.createElement("div");
+								secLabel.style.fontSize = "0.75rem";
+								secLabel.style.color = "var(--text-secondary)";
+								secLabel.style.fontWeight = "500";
+								secLabel.textContent = `Object ${objIdx + 1} (Secondary):`;
+								
+								const secValue = document.createElement("div");
+								secValue.textContent = item.secondaryValues[objIdx];
+								if (editable) {
+									secValue.contentEditable = "true";
+									secValue.className = "editable-value";
+									secValue.dataset.field = `${item.label} Secondary`;
+									secValue.dataset.objectIndex = objIdx;
+								}
+								
+								secRowDiv.appendChild(secLabel);
+								secRowDiv.appendChild(secValue);
+								
+								// Add secondary confidence bar if available
+								if (
+									item.secondaryConfidences &&
+									item.secondaryConfidences[objIdx] !== null &&
+									item.secondaryConfidences[objIdx] !== undefined
+								) {
+									const secConfidenceBar = document.createElement("div");
+									secConfidenceBar.className = "confidence-bar";
+									const secConfidenceFill = document.createElement("div");
+									secConfidenceFill.className = "confidence-fill";
+									secConfidenceFill.style.width = "0%";
+									secConfidenceBar.appendChild(secConfidenceFill);
+									secRowDiv.appendChild(secConfidenceBar);
+									
+									// Animate confidence bar
+									setTimeout(() => {
+										secConfidenceFill.style.width = `${(
+											item.secondaryConfidences[objIdx] * 100
+										).toFixed(0)}%`;
+									}, (i + 1) * 200 + 700);
+								}
+								
+								valuesContainer.appendChild(secRowDiv);
+							}
 						});
 
 						resultDiv.appendChild(valuesContainer);
@@ -1429,57 +1577,48 @@
 						// Typewriter effect for each value
 						await new Promise((resolve) => setTimeout(resolve, i * 100));
 
-						// Handle secondary characteristics styling
-						if (item.hasSecondary && item.value.includes(" + ")) {
-							const parts = item.value.split(" + ");
-							const primaryPart = parts[0];
-							const secondaryPart = parts[1]; // e.g., "black (20%)"
-
-							await typeWriter(valueDiv, primaryPart, 20);
-
-							// Parse secondary part to separate editable name from non-editable percentage
-							const secondaryMatch = secondaryPart.match(
-								/^([^(]+)\s*\((\d+%)\)$/
-							);
-							if (secondaryMatch && editable) {
-								// Editable secondary color/material name, non-editable percentage
-								const secondaryName = secondaryMatch[1].trim();
-								const secondaryPercentage = secondaryMatch[2];
-
-								const secondarySpan = document.createElement("span");
-								secondarySpan.className = "secondary-characteristic";
-								secondarySpan.textContent = " + ";
-
-								const editableSecondary = document.createElement("span");
-								editableSecondary.contentEditable = "true";
-								editableSecondary.className = "editable-value";
-								editableSecondary.style.display = "inline";
-								editableSecondary.style.padding = "2px 6px";
-								editableSecondary.style.minHeight = "auto";
-								editableSecondary.textContent = secondaryName;
-								editableSecondary.dataset.field = `${item.label} Secondary`;
-
-								const percentageSpan = document.createElement("span");
-								percentageSpan.contentEditable = "false";
-								percentageSpan.textContent = ` (${secondaryPercentage})`;
-								percentageSpan.style.userSelect = "none";
-
-								secondarySpan.appendChild(editableSecondary);
-								secondarySpan.appendChild(percentageSpan);
-								valueDiv.appendChild(secondarySpan);
-							} else {
-								// Non-editable or no match
-								const secondarySpan = document.createElement("span");
-								secondarySpan.className = "secondary-characteristic";
-								secondarySpan.textContent = " + " + secondaryPart;
-								if (editable) {
-									secondarySpan.contentEditable = "false";
-								}
-								valueDiv.appendChild(secondarySpan);
+						// Convert value to string to handle numbers properly
+						await typeWriter(valueDiv, String(item.value), 20);
+						
+						// Add secondary value as a new row within the same card if present
+						if (item.secondaryValue) {
+							const secondaryLabel = document.createElement("div");
+							secondaryLabel.className = "result-label";
+							secondaryLabel.textContent = "Secondary";
+							secondaryLabel.style.fontSize = "0.85rem";
+							secondaryLabel.style.marginTop = "0.75rem";
+							secondaryLabel.style.color = "var(--text-secondary)";
+							
+							const secondaryValueDiv = document.createElement("div");
+							secondaryValueDiv.className = "result-value";
+							if (editable) {
+								secondaryValueDiv.contentEditable = "true";
+								secondaryValueDiv.classList.add("editable-value");
+								secondaryValueDiv.dataset.field = `${item.label} Secondary`;
 							}
-						} else {
-							// Convert value to string to handle numbers properly
-							await typeWriter(valueDiv, String(item.value), 20);
+							
+							resultDiv.appendChild(secondaryLabel);
+							resultDiv.appendChild(secondaryValueDiv);
+							
+							// Add secondary confidence bar if available
+							if (item.secondaryConfidence !== null && item.secondaryConfidence !== undefined) {
+								const secConfidenceBar = document.createElement("div");
+								secConfidenceBar.className = "confidence-bar";
+								const secConfidenceFill = document.createElement("div");
+								secConfidenceFill.className = "confidence-fill";
+								secConfidenceFill.style.width = "0%";
+								secConfidenceBar.appendChild(secConfidenceFill);
+								resultDiv.appendChild(secConfidenceBar);
+								
+								// Animate confidence bar
+								setTimeout(() => {
+									secConfidenceFill.style.width = `${(item.secondaryConfidence * 100).toFixed(0)}%`;
+								}, (i + 1) * 200 + 700);
+							}
+							
+							// Typewriter effect for secondary value
+							await new Promise((resolve) => setTimeout(resolve, 100));
+							await typeWriter(secondaryValueDiv, String(item.secondaryValue), 20);
 						}
 					}
 				}

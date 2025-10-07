@@ -394,11 +394,11 @@ Schema (arrays must have EXACTLY {object_count} entries):
   "fields": {{
     "condition": ["new|open_box|used|damaged|unknown", ...],
     "colour": ["black|white|gray|silver|gold|red|blue|green|brown|beige|transparent|unknown", ...],
-    "material": ["plastic|metal|textile|paper|cardboard|wood|glass|ceramic|other|unknown", ...],
-    "category": ["apparel|electronics|housewares|toys|tools|books|beauty|sports|other|unknown", ...],
+    "material": ["plastic|metal|chemical|fabric|fibreglass|fur|liquid|perishable|rubber|stone|wood|textile|paper|cardboard|glass|ceramic|other|unknown", ...],
+    "category": ["automotive/vehicle|baby goods|building supplies/materials|chemicals|clothing/shoes/accessories|collectibles|computers/networking|consumer electronics|drugs/pharmaceuticals|electrical/lighting|entertainment media|fabric|food/beverages|gift cards|health/beauty|housewares|toys|tools|books|sports|other|unknown", ...],
     "brand": ["", ...],
     "model": ["", ...],
-    "quantity": [1, ...],
+    "quantity": [0, ...],
     "upc": ["", ...],
     "additional_info": ["", ...]
   }},
@@ -417,22 +417,21 @@ Schema (arrays must have EXACTLY {object_count} entries):
     "object_count": {object_count},
     "print_label": false,
     "ocr_text": "ALL visible text from the image",
-    "visible_marks": "logos, serial numbers, any identifiers",
-    "needs_review": false
+    "visible_marks": "logos, serial numbers, any identifiers"
   }}
 }}
 
 Instructions:
 - Each array must have EXACTLY {object_count} entries
 - Order: left to right, or primary object first
-- **descriptions**: Write DETAILED 2-3 sentence descriptions for each object including brand, model, condition, color, distinctive features
-- **quantity**: COUNT how many of each object type are visible. If there are 5 plates, quantity=5. If 1 Game Boy, quantity=1. Be precise!
-- **upc**: For each object, if a UPC/EAN barcode is visible on that specific item or its packaging, read and extract the numeric code (typically 12-13 digits). Look carefully at barcode labels. If you can clearly read the numbers below the barcode stripes, transcribe them exactly. If no barcode is visible for that object or the numbers are not readable, use empty string "". Do NOT guess or invent UPC codes.
+- **descriptions**: Write 2-3 sentence descriptions of what you SEE for each object - physical appearance, visible text/logos, condition, colors, materials. DO NOT invent backstory, purpose, or content. DO NOT describe what the item does unless explicitly printed on it. Stick to observable physical details only.
+- **quantity**: For each object type, COUNT the ACTUAL NUMBER of individual items visible. If you see 10 plates (even if called "1 set"), quantity=10. If you see 1 Game Boy, quantity=1. Count individual items, NOT sets. Be precise and count carefully!
+- **upc**: For each object, ONLY extract if there is a visible UPC/EAN/ISBN product barcode on that specific item or its packaging (the vertical black and white stripes with 12-13 digit numbers underneath). Extract the digits ONLY if you can clearly read them below the barcode stripes. This field is EXCLUSIVELY for barcode numbers - do NOT put these numbers in the model field. If no barcode is visible for that object, use empty string "". Do NOT fill this with license numbers, serial numbers, or other non-barcode text.
 - **additional_info**: Include EVERYTHING - model numbers, serial numbers, generation info, special editions, any visible text on that specific object, unique identifiers, version details, region codes, anything that helps identify the exact variant
-- **Brand/Model**: Be aggressive in identification - use button layouts, port configs, design language, any visual cues
+- **Brand/Model**: Be aggressive in identification - use button layouts, port configs, design language, any visual cues. Model should be the MOST SPECIFIC product model/generation/variant (e.g., "Xbox Wireless Controller - Series X|S", "Game Boy Advance SP", "PlayStation 5 - Disc Edition"). Include generation/version info if visible (like "Series X|S", "Gen 2", "Pro"). Model is the product's MODEL NAME, NOT a UPC/EAN/ISBN barcode number. If no specific model/version visible, use generic name. If truly unsure, leave empty "".
 - **global.object_count**: MUST be {object_count} (the number of distinct object TYPES, not total quantity)
 - **global.print_label**: true ONLY if there's a shipping label, barcode sticker, or SKU label visible (NOT product branding)
-- **global.ocr_text**: Extract ALL readable text from the entire image including product names, model numbers, any text on objects or packaging
+- **global.ocr_text**: Extract ALL readable text from the entire image including product names, model numbers, any text on objects or packaging (limit to most important text if too long)
 - **global.visible_marks**: Note any logos, serial numbers, QR codes, barcodes visible anywhere in the image
 
 CRITICAL OUTPUT REQUIREMENTS:
@@ -466,22 +465,15 @@ Schema:
   "fields": {
     "condition": "new|open_box|used|damaged|unknown",
     "colour": "black|white|gray|silver|gold|red|blue|green|brown|beige|transparent|unknown",
-    "colour_secondary": {
-      "color": "black|white|gray|silver|gold|red|blue|green|brown|beige|transparent|null",
-      "percentage": 0
-    },
-    "material": "plastic|metal|textile|paper|cardboard|wood|glass|ceramic|other|unknown",
-    "material_secondary": {
-      "material": "plastic|metal|textile|paper|cardboard|wood|glass|ceramic|other|null",
-      "percentage": 0
-    },
-    "category": "apparel|electronics|housewares|toys|tools|books|beauty|sports|other|unknown",
+    "colour_secondary": "black|white|gray|silver|gold|red|blue|green|brown|beige|transparent|null",
+    "material": "plastic|metal|chemical|fabric|fibreglass|fur|liquid|perishable|rubber|stone|wood|textile|paper|cardboard|glass|ceramic|other|unknown",
+    "material_secondary": "plastic|metal|chemical|fabric|fibreglass|fur|liquid|perishable|rubber|stone|wood|textile|paper|cardboard|glass|ceramic|other|null",
+    "category": "automotive/vehicle|baby goods|building supplies/materials|chemicals|clothing/shoes/accessories|collectibles|computers/networking|consumer electronics|drugs/pharmaceuticals|electrical/lighting|entertainment media|fabric|food/beverages|gift cards|health/beauty|housewares|toys|tools|books|sports|other|unknown",
     "brand": "",
     "model": "",
-    "quantity": 1,
+    "quantity": 0,
     "weight": { "value": null, "unit": "g|kg|lb|oz|null" },
     "print_label": true,
-    "sort": "known_overgoods|vague_overgoods",
     "upc": "",
     "additional_info": ""
   },
@@ -497,7 +489,6 @@ Schema:
     "quantity": 0.0,
     "weight": 0.0,
     "print_label": 0.0,
-    "sort": 0.0,
     "upc": 0.0
   },
   "evidence": {
@@ -505,25 +496,23 @@ Schema:
     "visible_marks": "",
     "image_refs": ["img"]
   },
-  "needs_review": false,
   "description": ""
 }
 
 Instructions:
 - **Maximize filled fields.** Choose the most likely option; adjust the corresponding confidence in [0,1].
-- **Condition** describes the item itself (not just the cardboard). Packaging wear can imply open_box.
-- **Colour**: pick the dominant visible surface colour. If two are equally dominant, choose the one that visually covers more of the item; note the secondary in additional_info.
-- **Material**: infer from texture/finish (e.g., matte polymer, brushed metal, woven fabric); use "other" rather than "unknown" when a reasonable class exists.
+- **Condition**: "new" = unopened/mint; "open_box" = opened but unused; "used" = shows normal wear; "damaged" = broken/defective; "unknown" if unclear.
+- **Colour**: pick the dominant visible surface colour. If a significant secondary color exists (15%+ of item), specify it in colour_secondary, otherwise use "null".
+- **Material**: infer from texture/finish (e.g., matte polymer, brushed metal, woven fabric); use "other" rather than "unknown" when a reasonable class exists. If a significant secondary material exists (15%+ of item), specify it in material_secondary, otherwise use "null".
 - **Category**: prefer the closest fit from the list; if borderline, choose the most probable and reflect uncertainty via confidence.
 - **Brand**: Extract from visible logos, text, or infer from distinctive design features. Be aggressive in identification.
-- **Model**: Identify specific model/version based on visual features, button layouts, ports, design generation. Include generation info (e.g., "Series X", "360", "One S").
-- **Quantity**: COUNT how many of this item are visible in the image. If you see 5 plates, quantity=5. If 1 controller, quantity=1. Be precise and count carefully!
+- **Model**: Identify the MOST SPECIFIC product model/generation/variant visible (e.g., "Xbox Wireless Controller - Series X|S", "Game Boy Advance SP", "PlayStation 5 - Disc Edition", "iPhone 13 Pro Max"). Include generation/version info if visible on the item or packaging (like "Series X|S", "Gen 2", "Pro", "Plus", etc.). This is the product's MODEL NAME, not a barcode number. CRITICAL: Do NOT put UPC/EAN/ISBN numbers here - those belong ONLY in the upc field. If no specific model/version is visible, use a generic name (e.g., "Xbox Wireless Controller"). If completely unidentifiable, leave empty "".
+- **Quantity**: COUNT the ACTUAL NUMBER of individual items visible. If you see 10 plates (even if called "1 set"), quantity=10. If you see 1 controller, quantity=1. Count individual items, NOT sets. Be precise and count carefully!
 - **Weight**: ONLY if printed/legible on the image; otherwise leave value=null and unit=null but still include a brief rationale in additional_info if an apparent size/form suggests a typical range (do NOT invent numbers).
 - **print_label = true** if a barcode/QR/SKU/address block or shipping label is visibly present (even if partially unreadable).
-- **sort** = "known_overgoods" if there is any strong identifier (barcode/SKU/model/no. or clearly addressed label); otherwise "vague_overgoods".
-- **upc**: If a UPC/EAN barcode is visible in the image, read and extract the numeric code (typically 12-13 digits). Look carefully at barcode labels on the item or packaging. If you can clearly read the numbers below the barcode stripes, transcribe them exactly. If no barcode is visible or the numbers are not readable, leave this as an empty string "". Do NOT guess or invent UPC codes.
+- **upc**: ONLY for UPC/EAN/ISBN product barcodes (the vertical black and white stripes with 12-13 digit numbers underneath). Extract the digits ONLY if you can clearly read them below the barcode stripes. This field is EXCLUSIVELY for barcode numbers - do NOT put these numbers in the model field. If no barcode is visible or readable, leave this as an empty string "". Do NOT fill this with license numbers, serial numbers, or other non-barcode text.
 - **additional_info**: Include ALL identifying details you can extract - model numbers, serial numbers visible, distinctive features, generations, variants, special editions, any text visible on the item or packaging. Be comprehensive.
-- **description**: 1 concise sentence that includes brand and model when known, summarizing the item using ONLY information implied by the image.
+- **description**: Write 2-3 sentence descriptions of what you SEE in the image - physical appearance, visible text, logos, condition, colors, materials, packaging. DO NOT invent backstory, purpose, or content. DO NOT describe what the item does or contains unless it's explicitly printed on the item. Stick to observable physical details only. Example: "A purple hardcover book titled 'The Queen's Code' by Alison Armstrong" NOT "A book that explores misunderstandings..."
 
 CRITICAL OUTPUT REQUIREMENTS:
 - Your response MUST START with { and END with }
@@ -619,6 +608,10 @@ Begin your response with { now:
                         f"After .strip(): length={len(json_str)}, last char='{json_str[-1]}' (ASCII {ord(json_str[-1])})"
                     )
 
+                    # Track if we used aggressive fallback trimming
+                    used_aggressive_trimming = False
+                    chars_cut = 0
+
                     # Handle markdown code blocks: ```json\n{...}\n``` or ```\n{...}\n```
                     if "```" in json_str:
                         # Extract content between code fences
@@ -667,12 +660,16 @@ Begin your response with { now:
                                 f"  ✓ Found MATCHING '}}' at position: {end_idx - 1} (will cut to length {end_idx})"
                             )
                             json_str = json_str[:end_idx]
+                            chars_cut = original_len - len(json_str)
                             print(
-                                f"  ✂️  CUT OFF {original_len - len(json_str)} chars! ({original_len} → {len(json_str)})"
+                                f"  ✂️  CUT OFF {chars_cut} chars! ({original_len} → {len(json_str)})"
                             )
                             print(
                                 f"  After trim, last 40 chars: ...{repr(json_str[-40:])}"
                             )
+                            # If we cut more than 100 chars, this is aggressive trimming
+                            if chars_cut > 100:
+                                used_aggressive_trimming = True
                         else:
                             # FALLBACK #69: The { trick causes AI to omit the final }
                             # If we have opening brace but no closing, just add it!
@@ -718,11 +715,17 @@ Begin your response with { now:
                         print(f"  Last 100 chars: {json_str[-100:]}")
                         parsed_result = json.loads(json_str)
 
-                        return {
+                        result = {
                             "success": True,
                             "data": parsed_result,
                             "raw_response": generated_text,
                         }
+                        # Add warning if we had to aggressively trim the response
+                        if used_aggressive_trimming:
+                            result["parsing_warning"] = (
+                                f"AI returned malformed response. Had to cut off {chars_cut} characters to extract JSON."
+                            )
+                        return result
                     else:
                         # FALLBACK: Try to extract data from non-JSON formats
                         print(f"✗ JSON validation failed!")
@@ -1732,6 +1735,7 @@ Begin your response with {{ now:
 
                     # Track if we used fallback parsing
                     used_fallback = False
+                    chars_cut = 0
 
                     # Handle markdown code blocks
                     if "```" in json_str:
@@ -1780,12 +1784,16 @@ Begin your response with {{ now:
                                 f"  ✓ Found MATCHING '}}' at position: {end_idx - 1} (will cut to length {end_idx})"
                             )
                             json_str = json_str[:end_idx]
+                            chars_cut = original_len - len(json_str)
                             print(
-                                f"  ✂️  CUT OFF {original_len - len(json_str)} chars! ({original_len} → {len(json_str)})"
+                                f"  ✂️  CUT OFF {chars_cut} chars! ({original_len} → {len(json_str)})"
                             )
                             print(
                                 f"  After trim, last 40 chars: ...{repr(json_str[-40:])}"
                             )
+                            # If we cut more than 100 chars, this is aggressive trimming
+                            if chars_cut > 100:
+                                used_fallback = True
                         else:
                             # FALLBACK #69: The { trick causes AI to omit the final }
                             print(f"  ⚠️  Could not find matching closing brace")
@@ -1831,9 +1839,14 @@ Begin your response with {{ now:
                         )
                         result = {"success": True, "verification": parsed_result}
                         if used_fallback:
-                            result["parsing_warning"] = (
-                                "AI returned non-JSON format. Fallback parsing was used."
-                            )
+                            if chars_cut > 0:
+                                result["parsing_warning"] = (
+                                    f"AI returned malformed response. Had to cut off {chars_cut} characters to extract JSON."
+                                )
+                            else:
+                                result["parsing_warning"] = (
+                                    "AI returned non-JSON format. Fallback parsing was used."
+                                )
                         return result
                     else:
                         print(f"✗ JSON validation failed!")

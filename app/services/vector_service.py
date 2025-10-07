@@ -677,29 +677,60 @@ class SimpleVectorDatabase:
                         else:
                             material = material.capitalize()
 
-                        # Condition
+                        # Condition - directly use the new format
                         condition = fields.get("condition", "Unknown")
+                        # Map old format to new if needed, otherwise use as-is
                         condition_map = {
-                            "new": "New",
-                            "open_box": "Open Box",
-                            "used": "Used",
-                            "damaged": "Damaged",
+                            "new": "Brand New, Factory Sealed",
+                            "open_box": "Like New, Not Sealed",
+                            "used": "Used, Worn",
+                            "damaged": "Severely Damaged, DOA",
                             "unknown": "Unknown",
                         }
-                        condition = condition_map.get(condition.lower(), "Unknown")
-
-                        # Category from AI or fallback to extraction
-                        ai_category = fields.get("category", "").lower()
-                        if ai_category in ["electronics", "electronic"]:
-                            category, sub_category = "Electronics", "General"
-                        elif ai_category in ["apparel", "clothing"]:
-                            category, sub_category = "Clothing", "Apparel"
-                        elif ai_category in ["housewares", "household"]:
-                            category, sub_category = "Housewares", "General"
+                        # Check if it's already in the new format
+                        if condition in [
+                            "Brand New, Factory Sealed",
+                            "Like New, Not Sealed",
+                            "Used, Worn",
+                            "Severely Damaged, DOA",
+                        ]:
+                            pass  # Already in new format
                         else:
-                            # Fallback to extraction
-                            desc_lower = description.lower()
-                            category, sub_category = self._extract_category(desc_lower)
+                            condition = condition_map.get(condition.lower(), condition)
+
+                        # Category from AI - use the new expanded categories
+                        ai_category = (
+                            fields.get("category", "").lower().replace("/", " ")
+                        )
+
+                        # Map AI categories to display format
+                        category_map = {
+                            "automotive vehicle": "Automotive/Vehicle",
+                            "baby goods": "Baby Goods",
+                            "building supplies materials": "Building Supplies/Materials",
+                            "chemicals": "Chemicals",
+                            "clothing shoes accessories": "Clothing/Shoes/Accessories",
+                            "collectibles": "Collectibles",
+                            "computers networking": "Computers/Networking",
+                            "consumer electronics": "Consumer Electronics",
+                            "drugs pharmaceuticals": "Drugs/Pharmaceuticals",
+                            "electrical lighting": "Electrical/Lighting",
+                            "entertainment media": "Entertainment Media",
+                            "fabric": "Fabric",
+                            "food beverages": "Food/Beverages",
+                            "gift cards": "Gift Cards",
+                            "health beauty": "Health/Beauty",
+                            "housewares": "Housewares",
+                            "toys": "Toys",
+                            "tools": "Tools",
+                            "books": "Books",
+                            "sports": "Sports",
+                            "other": "Other",
+                            "unknown": "Unknown",
+                        }
+
+                        category = category_map.get(ai_category, ai_category.title())
+                        sub_category = "General"
 
                         # Update the item with REAL AI data
                         item["description"] = description
@@ -733,16 +764,53 @@ class SimpleVectorDatabase:
                         material = fields.get("material", "Mixed").capitalize()
                         condition = fields.get("condition", "Unknown")
                         condition_map = {
-                            "new": "New",
-                            "open_box": "Open Box",
-                            "used": "Used",
-                            "damaged": "Damaged",
+                            "new": "Brand New, Factory Sealed",
+                            "open_box": "Like New, Not Sealed",
+                            "used": "Used, Worn",
+                            "damaged": "Severely Damaged, DOA",
                             "unknown": "Unknown",
                         }
-                        condition = condition_map.get(condition.lower(), "Unknown")
+                        # Check if it's already in the new format
+                        if condition in [
+                            "Brand New, Factory Sealed",
+                            "Like New, Not Sealed",
+                            "Used, Worn",
+                            "Severely Damaged, DOA",
+                        ]:
+                            pass  # Already in new format
+                        else:
+                            condition = condition_map.get(condition.lower(), condition)
 
-                        desc_lower = description.lower()
-                        category, sub_category = self._extract_category(desc_lower)
+                        # Category from AI - use the new expanded categories
+                        ai_category = (
+                            fields.get("category", "").lower().replace("/", " ")
+                        )
+                        category_map = {
+                            "automotive vehicle": "Automotive/Vehicle",
+                            "baby goods": "Baby Goods",
+                            "building supplies materials": "Building Supplies/Materials",
+                            "chemicals": "Chemicals",
+                            "clothing shoes accessories": "Clothing/Shoes/Accessories",
+                            "collectibles": "Collectibles",
+                            "computers networking": "Computers/Networking",
+                            "consumer electronics": "Consumer Electronics",
+                            "drugs pharmaceuticals": "Drugs/Pharmaceuticals",
+                            "electrical lighting": "Electrical/Lighting",
+                            "entertainment media": "Entertainment Media",
+                            "fabric": "Fabric",
+                            "food beverages": "Food/Beverages",
+                            "gift cards": "Gift Cards",
+                            "health beauty": "Health/Beauty",
+                            "housewares": "Housewares",
+                            "toys": "Toys",
+                            "tools": "Tools",
+                            "books": "Books",
+                            "sports": "Sports",
+                            "other": "Other",
+                            "unknown": "Unknown",
+                        }
+                        category = category_map.get(ai_category, ai_category.title())
+                        sub_category = "General"
 
                         item["description"] = description
                         item["metadata"].update(
