@@ -417,7 +417,6 @@ Schema (arrays must have EXACTLY {object_count} entries):
   "descriptions": ["Rich detailed description of object 1 with brand, model, condition, distinctive features", "Rich detailed description of object 2...", ...],
   "global": {{
     "object_count": {object_count},
-    "print_label": false,
     "ocr_text": "ALL visible text from the image",
     "visible_marks": "logos, serial numbers, any identifiers"
   }}
@@ -432,7 +431,6 @@ Instructions:
 - **additional_info**: Include EVERYTHING - model numbers, serial numbers, generation info, special editions, any visible text on that specific object, unique identifiers, version details, region codes, anything that helps identify the exact variant
 - **Brand/Model**: Be aggressive in identification - use button layouts, port configs, design language, any visual cues. Model should be the MOST SPECIFIC product model/generation/variant (e.g., "Xbox Wireless Controller - Series X|S", "Game Boy Advance SP", "PlayStation 5 - Disc Edition"). Include generation/version info if visible (like "Series X|S", "Gen 2", "Pro"). Model is the product's MODEL NAME, NOT a UPC/EAN/ISBN barcode number. If no specific model/version visible, use generic name. If truly unsure, leave empty "".
 - **global.object_count**: MUST be {object_count} (the number of distinct object TYPES, not total quantity)
-- **global.print_label**: true ONLY if there's a shipping label, barcode sticker, or SKU label visible (NOT product branding)
 - **global.ocr_text**: Extract ALL readable text from the entire image including product names, model numbers, any text on objects or packaging (limit to most important text if too long)
 - **global.visible_marks**: Note any logos, serial numbers, QR codes, barcodes visible anywhere in the image
 
@@ -475,7 +473,6 @@ Schema:
     "model": "",
     "quantity": 0,
     "weight": { "value": null, "unit": "g|kg|lb|oz|null" },
-    "print_label": true,
     "upc": "",
     "additional_info": ""
   },
@@ -490,7 +487,6 @@ Schema:
     "model": 0.0,
     "quantity": 0.0,
     "weight": 0.0,
-    "print_label": 0.0,
     "upc": 0.0
   },
   "evidence": {
@@ -1130,7 +1126,6 @@ Provide a concise search description (1-2 sentences) that captures the essential
                     "descriptions": descriptions,
                     "global": {
                         "object_count": object_count,
-                        "print_label": False,
                         "ocr_text": "",
                         "visible_marks": "",
                         "needs_review": True,  # Mark for review since this is fallback data
@@ -1219,7 +1214,6 @@ Provide a concise search description (1-2 sentences) that captures the essential
                             int(quantity) if quantity and quantity.isdigit() else 1
                         ),
                         "weight": {"value": None, "unit": "null"},
-                        "print_label": False,
                         "sort": "vague_overgoods",
                         "additional_info": "",
                     },
@@ -1234,7 +1228,6 @@ Provide a concise search description (1-2 sentences) that captures the essential
                         "model": 0.5,
                         "quantity": 0.5,
                         "weight": 0.0,
-                        "print_label": 0.5,
                         "sort": 0.5,
                     },
                     "description": f"{brand or 'Unknown'} {model or 'item'}",

@@ -1119,11 +1119,7 @@
 								value: globalData.object_count || objectCount,
 								confidence: null,
 							},
-							{
-								label: "Print Label",
-								value: globalData.print_label ? "Yes" : "No",
-								confidence: null,
-							},
+                            
 							{
 								label: "OCR Text",
 								value: (globalData.ocr_text || "None detected").substring(0, 150) + ((globalData.ocr_text && globalData.ocr_text.length > 150) ? "..." : ""),
@@ -1220,11 +1216,7 @@
 								value: 1,
 								confidence: null,
 							},
-							{
-								label: "Print Label",
-								value: fields.print_label ? "Yes" : "No",
-								confidence: null,
-							},
+                            
 							{
 								label: "OCR Text",
 								value: (globalData.ocr_like_text || "None detected").substring(0, 150) + ((globalData.ocr_like_text && globalData.ocr_like_text.length > 150) ? "..." : ""),
@@ -1295,11 +1287,7 @@
 									: "Not specified",
 								confidence: confidence.weight,
 							},
-							{
-								label: "Print Label",
-								value: fields.print_label ? "Yes" : "No",
-								confidence: confidence.print_label,
-							},
+                            
 							{
 								label: "Additional Info",
 								value: fields.additional_info || "N/A",
