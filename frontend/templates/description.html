@@ -25,6 +25,10 @@
 			--warning-bg: rgba(217, 119, 6, 0.1);
 			--error: #dc2626;
 			--error-bg: rgba(220, 38, 38, 0.1);
+			/* Confidence gradient stops */
+			--conf-low: #ef4444;   /* red */
+			--conf-mid: #f59e0b;   /* amber */
+			--conf-high: #10b981;  /* green */
 		}
 
 		[data-theme="light"] {
@@ -47,6 +51,10 @@
 			--warning-bg: rgba(217, 119, 6, 0.08);
 			--error: #dc2626;
 			--error-bg: rgba(220, 38, 38, 0.08);
+			/* Confidence gradient stops (light theme) */
+			--conf-low: #ef4444;
+			--conf-mid: #f59e0b;
+			--conf-high: #10b981;
 		}
 
 			* {
@@ -499,11 +507,8 @@
 
 			.confidence-fill {
 				height: 100%;
-				background: linear-gradient(
-					90deg,
-					var(--accent-primary),
-					var(--accent-secondary)
-				);
+				/* Red -> Amber -> Green gradient so visible color trends greener as value increases */
+				background: linear-gradient(90deg, var(--conf-low), var(--conf-mid) 50%, var(--conf-high) 90%);
 				border-radius: 2px;
 				transition: width 0.5s ease;
 			}

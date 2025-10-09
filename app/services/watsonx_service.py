@@ -383,6 +383,8 @@ This image contains {object_count} distinct objects. You must analyze EACH objec
 
 For each field, provide an array with {object_count} entries, one for each object in order (left to right, or primary to secondary).
 
+ If something is uncertain, still provide the most probable value and reflect that in the confidence score. Be harsh with the confidence scores, if you're really not sure about something, let it be low. Use "unknown" only when there is truly no reasonable inference.
+
 **CRITICAL: IDENTIFY BRANDS AND MODELS FOR EACH OBJECT**
 - Look for ANY visible branding, logos, or model identifiers on EACH object
 - Each object gets its own brand, model, color, material, etc.
@@ -449,7 +451,7 @@ Begin your response with {{ now:
 
 You are a detail-focused visual inspector with expertise in product identification.
 
-Goal: From ONE photo of a single item, produce a COMPLETE structured record with MAXIMUM detail extraction. Favor best-guess, high-coverage outputs. Use visual cues (shape, components, texture, design language), printed text, logos, icons, packaging hints, model-specific features, and common-sense priors. If something is uncertain, still provide the most probable value and reflect that in the confidence score. Use "unknown" only when there is truly no reasonable inference.
+Goal: From ONE photo of a single item, produce a COMPLETE structured record with MAXIMUM detail extraction. Favor best-guess, high-coverage outputs. Use visual cues (shape, components, texture, design language), printed text, logos, icons, packaging hints, model-specific features, and common-sense priors. If something is uncertain, still provide the most probable value and reflect that in the confidence score. Be harsh with the confidence scores, if you're really not sure about something, let it be low. Use "unknown" only when there is truly no reasonable inference.
 
 **CRITICAL: IDENTIFY BRANDS AND MODELS**
 - Look for ANY visible branding, logos, or model identifiers
